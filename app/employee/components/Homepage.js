@@ -1,55 +1,12 @@
 "use client";
-
 import { useUser, useAuth } from '@clerk/nextjs';
 import Image from "next/image";
-<<<<<<< Updated upstream
-import Profile from './components/Profile'; // Import Profile component
-import Schedule from './components/Schedule'; // Import Schedule component
-=======
 import { useEffect, useState } from "react";
-import { format, addDays } from "date-fns";
->>>>>>> Stashed changes
 
-export default function EmployeePage() {
+export default function Homepage() {
   const { signOut } = useAuth();
   const { user } = useUser();
-<<<<<<< Updated upstream
-
-  return (
-    <div className="relative min-h-screen bg-gray-100 p-6">
-      {/* Logo Section */}
-      <div className="absolute top-3 left-3">
-        <Image
-          className="dark:invert"
-          src="/images/tempo-removebg-preview.png"
-          alt="Tempo logo"
-          width={120}
-          height={40}
-          priority
-        />
-      </div>
-
-      {/* Welcome Message */}
-      <div className="mt-20 text-left"> {/* Adjusted margin to position below logo */}
-        {user && (() => {
-          const userName = user.emailAddresses[0].emailAddress.split('@')[0];
-          const capitalizedUserName = userName.charAt(0).toUpperCase() + userName.slice(1);
-
-          return (
-            <h1 className="text-2xl font-bold text-blue-500">
-              Welcome to Tempo, {capitalizedUserName}!
-            </h1>
-          );
-        })()}
-      </div>
-
-      {/* Schedule Section */}
-      <div className="mt-12">
-        <Schedule /> {/* Schedule component handles the grid itself */}
-=======
   const [location, setLocation] = useState({ lat: null, lon: null });
-  const [today, setToday] = useState(new Date());
-  const [weeklyShifts, setWeeklyShifts] = useState([]);
 
   // Fetch user's location using Geolocation API
   useEffect(() => {
@@ -62,20 +19,6 @@ export default function EmployeePage() {
       });
     }
   }, []);
-
-  // Mock shifts for the next 7 days (you can replace this with actual data)
-  useEffect(() => {
-    const shifts = [];
-    for (let i = 0; i < 7; i++) {
-      const date = addDays(today, i);
-      const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
-      shifts.push({
-        date: formattedDate,
-        shiftTime: i % 2 === 0 ? "9am - 5pm" : "10am - 6pm" // Example shift times
-      });
-    }
-    setWeeklyShifts(shifts);
-  }, [today]);
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -130,28 +73,11 @@ export default function EmployeePage() {
                 <div className="text-2xl font-bold">
                   Welcome to Tempo, {capitalizedUserName}!
                 </div>
-                <div className="text-xl font-semibold mt-4">
-                  Today's Date: {format(today, 'EEEE, MMMM d, yyyy')}
-                </div>
+                <div className="text-xl font-semibold mt-4">Schedule</div>
+                <div className="text-xl font-semibold mt-2">Open Shifts</div>
               </>
             );
           })()}
-        </div>
-
-        {/* Shifts for the Next 7 Days */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-4">Your Shifts for the Next 7 Days</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {weeklyShifts.map((shift, index) => (
-              <div
-                key={index}
-                className="bg-white shadow-md p-4 rounded-lg border border-gray-200"
-              >
-                <h3 className="text-lg font-bold">{shift.date}</h3>
-                <p className="text-gray-700 mt-2">Shift: {shift.shiftTime}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="flex items-center gap-4 fixed bottom-8 right-8">
@@ -175,11 +101,7 @@ export default function EmployeePage() {
             Sign Out →
           </button>
         </div>
->>>>>>> Stashed changes
       </div>
-
-      {/* Profile Section */}
-      <Profile user={user} signOut={signOut} />
     </div>
   );
 }
