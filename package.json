@@ -10,23 +10,9 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^5.5.2",
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-    "next": "14.2.10",
+    "next": "^14.2.10",
     "react": "^18",
     "react-dom": "^18"
-=======
-    "@heroicons/react": "^2.1.5",
-    "next": "^14.2.11",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
->>>>>>> Stashed changes
-=======
-    "date-fns": "^3.6.0",
-    "next": "^14.2.11",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
->>>>>>> Stashed changes
   },
   "devDependencies": {
     "@types/node": "22.5.4",
