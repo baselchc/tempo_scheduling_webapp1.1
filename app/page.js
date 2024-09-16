@@ -25,7 +25,7 @@ export default function Home() {
         <main className="flex flex-col gap-4 justify-center items-center text-center min-h-screen" style={{ transform: 'translateY(-10%)' }}>
           <Image
             className="dark:invert mx-auto"
-            src="/tempo-removebg-preview.png"
+            src="/images/tempo-removebg-preview.png"
             alt="Tempo logo"
             width={180}
             height={40}
