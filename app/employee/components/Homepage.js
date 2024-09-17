@@ -1,16 +1,12 @@
 "use client";
-
 import { useUser, useAuth } from '@clerk/nextjs';
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { format, addDays } from "date-fns";
 
-export default function EmployeePage() {
+export default function Homepage() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const [location, setLocation] = useState({ lat: null, lon: null });
-  const [today, setToday] = useState(new Date());
-  const [weeklyShifts, setWeeklyShifts] = useState([]);
 
   // Fetch user's location using Geolocation API
   useEffect(() => {
@@ -23,20 +19,6 @@ export default function EmployeePage() {
       });
     }
   }, []);
-
-  // Mock shifts for the next 7 days (you can replace this with actual data)
-  useEffect(() => {
-    const shifts = [];
-    for (let i = 0; i < 7; i++) {
-      const date = addDays(today, i);
-      const formattedDate = format(date, 'EEEE, MMMM d, yyyy');
-      shifts.push({
-        date: formattedDate,
-        shiftTime: i % 2 === 0 ? "9am - 5pm" : "10am - 6pm" // Example shift times
-      });
-    }
-    setWeeklyShifts(shifts);
-  }, [today]);
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -91,28 +73,11 @@ export default function EmployeePage() {
                 <div className="text-2xl font-bold">
                   Welcome to Tempo, {capitalizedUserName}!
                 </div>
-                <div className="text-xl font-semibold mt-4">
-                  Today's Date: {format(today, 'EEEE, MMMM d, yyyy')}
-                </div>
+                <div className="text-xl font-semibold mt-4">Schedule</div>
+                <div className="text-xl font-semibold mt-2">Open Shifts</div>
               </>
             );
           })()}
-        </div>
-
-        {/* Shifts for the Next 7 Days */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-semibold mb-4">Your Shifts for the Next 7 Days</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-            {weeklyShifts.map((shift, index) => (
-              <div
-                key={index}
-                className="bg-white shadow-md p-4 rounded-lg border border-gray-200"
-              >
-                <h3 className="text-lg font-bold">{shift.date}</h3>
-                <p className="text-gray-700 mt-2">Shift: {shift.shiftTime}</p>
-              </div>
-            ))}
-          </div>
         </div>
 
         <div className="flex items-center gap-4 fixed bottom-8 right-8">
