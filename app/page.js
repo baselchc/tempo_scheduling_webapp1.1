@@ -25,7 +25,7 @@ export default function Home() {
         <main className="flex flex-col gap-4 justify-center items-center text-center min-h-screen" style={{ transform: 'translateY(-10%)' }}>
           <Image
             className="dark:invert mx-auto"
-            src="/tempo-removebg-preview.png"
+            src="/images/tempo-removebg-preview.png"
             alt="Tempo logo"
             width={180}
             height={40}
@@ -38,7 +38,9 @@ export default function Home() {
 
           <div className="flex flex-row gap-4 items-center justify-center mt-8">
             <SignUpButton>
-              <button className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-lg sm:text-base h-12 w-40 px-5">
+              <button 
+              className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-lg sm:text-base h-12 w-40 px-5"
+              priority>
                 Get Started →
               </button>
             </SignUpButton>
