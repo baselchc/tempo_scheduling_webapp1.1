@@ -1,0 +1,21 @@
+/* EmployeePage.module.css */
+.container {
+    background-color: #e5e7eb; /* Equivalent to bg-gray-400 */
+    min-height: 100vh;
+  }
+  
+  .table {
+    min-width: 100%;
+    border: 1px solid #d1d5db; /* Equivalent to border-gray-300 */
+  }
+  
+  .tableHeader {
+    background-color: #3b82f6; /* Equivalent to bg-blue-500 */
+    color: white;
+  }
+  
+  .tableCell {
+    border: 1px solid #d1d5db; /* Equivalent to border */
+    padding: 0.5rem;
+  }
+  
