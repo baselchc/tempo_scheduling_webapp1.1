@@ -40,9 +40,9 @@ export default function EmployeePage() {
 
   const navItems = [
     { name: "Home", href: "/" },
-    { name: "Schedule", href: "/schedule" },
-    { name: "Open Shifts", href: "/openshifts" },
-    { name: "Profile", href: "/profile" },
+    { name: "Schedule", href: "/employee/schedule" },
+    { name: "Open Shifts", href: "/employee/openshifts" },
+    { name: "Profile", href: "/employee/profile" },
   ];
 
   return (
