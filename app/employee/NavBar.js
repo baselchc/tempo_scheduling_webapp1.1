@@ -3,8 +3,9 @@ import Image from 'next/image';
 import { useUser, useAuth } from '@clerk/nextjs';
 
 const NavBar = ({ menuOpen }) => {
-  const { signOut } = useAuth();
   const { user } = useUser();
+  const { signOut } = useAuth();
+
 
   const navItems = [
     { name: "Home", href: "/" },
@@ -15,12 +16,10 @@ const NavBar = ({ menuOpen }) => {
 
   return (
     <nav
-      className={`bg-blue-500 h-screen w-64 flex flex-col justify-between p-4 fixed top-0 left-0 z-40 
-        transition-transform duration-300 ease-in-out 
-        ${menuOpen ? 'translate-x-0' : '-translate-x-full'} 
-        md:translate-x-0 md:w-1/4 md:h-auto`}
+      className={`bg-blue-500 flex flex-col h-full min-h-screen justify-between p-4 fixed top-0 left-0 z-40 transition-transform duration-300 ease-in-out transform ${menuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:w-64`}
     >
       <div>
+        {/* Logo */}
         <Image
           className="dark:invert mb-6"
           src="/images/tempo-removebg-preview.png"
@@ -30,6 +29,7 @@ const NavBar = ({ menuOpen }) => {
           priority
         />
 
+        {/* Navigation Links */}
         <ul className="space-y-4">
           {navItems.map((item, index) => (
             <li key={index} className="text-white hover:bg-blue-600 p-2 rounded">
@@ -40,7 +40,7 @@ const NavBar = ({ menuOpen }) => {
       </div>
 
       {/* Profile and Sign Out */}
-      <div className="flex items-center gap-4 fixed bottom-8 left-4 md:static md:bottom-auto md:left-auto md:ml-4">
+      <div className="mt-auto flex items-center gap-4">
         <Image
           className="rounded-full"
           src={user?.profileImageUrl || '/default-avatar.png'}
@@ -56,10 +56,9 @@ const NavBar = ({ menuOpen }) => {
             ({user?.organizationMemberships?.[0]?.role === 'org:admin' ? 'Administrator' : 'Member'})
           </div>
         </div>
-
         <button
           onClick={() => signOut()}
-          className="ml-1 rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center dark:hover:bg-gray-400 hover:border-transparent text-sm sm:text-base h-12 w-30 px-5"
+          className="ml-auto mt-4 rounded-full border border-transparent bg-red-500 text-white hover:bg-red-800 transition-colors p-2 w-80 h-16"
         >
           Sign Out →
         </button>
