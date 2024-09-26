@@ -2,9 +2,7 @@
 
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
-import Image from "next/image";
 import NavBar from './NavBar'; // Import the NavBar component
-import styles from './EmployeePage.module.css'; // Import the CSS module
 
 export default function EmployeePage() {
   const { signOut } = useAuth();
@@ -43,20 +41,24 @@ export default function EmployeePage() {
         {/* Schedule Table */}
         <div className="mt-8">
           <h2 className="text-2xl font-semibold mb-4">Your Schedule</h2>
-          <table className={styles.table}>
+          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
             <thead>
-              <tr className={styles.tableHeader}>
-                <th className={styles.tableCell}>Date</th>
-                <th className={styles.tableCell}>Shift</th>
-                <th className={styles.tableCell}>Status</th>
+              <tr className="bg-gray-300">
+                <th className="text-left p-4 font-semibold text-gray-700">Date</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Shift</th>
+                <th className="text-left p-4 font-semibold text-gray-700">Status</th>
               </tr>
             </thead>
             <tbody>
               {scheduleData.map((item, index) => (
                 <tr key={index} className="border-b">
-                  <td className={styles.tableCell}>{item.date}</td>
-                  <td className={styles.tableCell}>{item.shift}</td>
-                  <td className={styles.tableCell}>{item.status}</td>
+                  <td className="p-4 text-gray-600">{item.date}</td>
+                  <td className="p-4 text-gray-600">{item.shift}</td>
+                  <td className={`p-4 font-semibold ${
+                    item.status === "Confirmed" ? "text-green-600" : "text-yellow-600"
+                  }`}>
+                    {item.status}
+                  </td>
                 </tr>
               ))}
             </tbody>

@@ -1,9 +1,9 @@
 import React from 'react';
 import Image from 'next/image';
-import { useUser, useAuth } from '@clerk/nextjs';
+import { useClerk, useUser } from '@clerk/nextjs';
 
 const NavBar = ({ menuOpen }) => {
-  const { signOut } = useAuth();
+  const { signOut } = useClerk();
   const { user } = useUser();
 
   const navItems = [
@@ -12,6 +12,9 @@ const NavBar = ({ menuOpen }) => {
     { name: "Open Shifts", href: "/employee/openshifts" },
     { name: "Profile", href: "/employee/profile" },
   ];
+
+  // Handle the case when user data is still loading
+  if (!user) return <p>Loading...</p>;
 
   return (
     <nav
@@ -43,14 +46,14 @@ const NavBar = ({ menuOpen }) => {
       <div className="flex items-center gap-4 fixed bottom-8 left-4 md:static md:bottom-auto md:left-auto md:ml-4">
         <Image
           className="rounded-full"
-          src={user?.profileImageUrl || '/default-avatar.png'}
+          src={user?.profileImageUrl || '/default-avatar.png'} 
           alt="Profile image"
           width={50}
           height={50}
         />
         <div>
           <div className="font-bold text-white">
-            {user?.emailAddresses[0].emailAddress}
+            {user?.emailAddresses[0]?.emailAddress || 'Unknown'}
           </div>
           <div className="text-sm text-white">
             ({user?.organizationMemberships?.[0]?.role === 'org:admin' ? 'Administrator' : 'Member'})
@@ -59,7 +62,7 @@ const NavBar = ({ menuOpen }) => {
 
         <button
           onClick={() => signOut()}
-          className="ml-1 rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center dark:hover:bg-gray-400 hover:border-transparent text-sm sm:text-base h-12 w-30 px-5"
+          className="ml-1 bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded transition-all duration-200"
         >
           Sign Out →
         </button>

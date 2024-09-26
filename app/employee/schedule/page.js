@@ -1,7 +1,11 @@
-export default function EmployeeSchedule() {
-    return (
-      <div>
-        <h1>Schedule</h1>
-      </div>
-      );
-  }
+"use client";
+
+import EmployeeSchedule from './EmployeeSchedule'; // Correct path as it's in the same directory
+
+export default function SchedulePage() {
+  return (
+    <div>
+      <EmployeeSchedule />
+    </div>
+  );
+}
