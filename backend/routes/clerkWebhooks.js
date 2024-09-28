@@ -1,72 +1,109 @@
 const express = require('express');
+const { Webhook } = require('svix');
+const bodyParser = require('body-parser');
+const db = require('../database/db');
+
 const router = express.Router();
-const db = require('./db');
-const { Webhook } = require('@clerk/clerk-sdk-node');
-require('dotenv').config();
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 
+if (!WEBHOOK_SECRET) {
+  throw new Error('Please add WEBHOOK_SECRET from Clerk Dashboard to .env');
+}
 
-// Sets the Clerk webhook secret key 
-const CLERK_WEBHOOK_SECRET = 'clerk webhook will go here';
+router.use(bodyParser.json());
 
-// Uses express.raw() middleware to parse the raw body for 'application/json' content type
-router.post('/clerk-webhooks', express.raw({ type: 'application/json' }), async (req, res) => {
-  // Accesses the raw request body payload
-  const payload = req.body;
-  // Retrieves the 'clerk-signature' header from the request for webhook verification
-  const signature = req.headers['clerk-signature'];
+// Webhook routes to handle Clerk events
+router.post('/clerk-webhooks', async (req, res) => {
+  console.log('Received webhook request');
+  console.log('Request body:', req.body);
+  console.log('Request headers:', req.headers);
 
-  let event;
-
+  const svix = new Webhook(WEBHOOK_SECRET);
+  
   try {
-    // Verifys the webhook payload using Clerk's Webhook.verify method
-    // This ensures the request is genuinely from Clerk and hasn't been tampered with
-    event = Webhook.verify(payload, signature, CLERK_WEBHOOK_SECRET);
+    const payload = JSON.stringify(req.body);
+    const headers = {
+      'svix-id': req.headers['svix-id'],
+      'svix-timestamp': req.headers['svix-timestamp'],
+      'svix-signature': req.headers['svix-signature'],
+    };
+    
+    console.log('Payload:', payload);
+    console.log('Headers:', headers);
 
-    // Destructures the 'type' of event and the associated 'data' from the verified event object
-    const { type, data } = event;
+    const event = svix.verify(payload, headers);
+    console.log(`Received verified event of type: ${event.type}`);
 
-    // Handles different types of webhook events
-    if (type === 'user.updated') {
-      // Event when a user's information is updated in Clerk
-
-      // Extracts the Clerk user ID from the event data
-      const clerkUserId = data.id;
-      // Constructs the user's full name by combining first and last names, handling possible undefined values
-      const name = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-      // Gets the user's primary email address from the event data
-      const email = data.email_addresses[0]?.email_address;
-
-      // Updates the user's name and email in the database based on their Clerk user ID
-      await db.query(
-        'UPDATE users SET name = $1, email = $2 WHERE clerk_user_id = $3',
-        [name, email, clerkUserId]
-      );
-
-      // Logs a message indicating that the user was updated successfully
-      console.log('User updated:', clerkUserId);
-    } else if (type === 'user.deleted') {
-      // Events when a user is deleted from Clerk
-
-      // Extracts the Clerk user ID from the event data
-      const clerkUserId = data.id;
-
-      // Deletes the user from the database using their Clerk user ID
-      await db.query('DELETE FROM users WHERE clerk_user_id = $1', [clerkUserId]);
-
-      // Logs a message indicating that the user was deleted successfully
-      console.log('User deleted:', clerkUserId);
+    switch (event.type) {
+      case 'user.created':
+        await handleUserCreated(event.data);
+        break;
+      case 'user.updated':
+        await handleUserUpdated(event.data);
+        break;
+      case 'user.deleted':
+        await handleUserDeleted(event.data);
+        break;
+      case 'session.created':
+        await handleSessionCreated(event.data);
+        break;
+      default:
+        console.log(`Unhandled event type: ${event.type}`);
     }
 
-    // Responds with a 200 OK status to acknowledge receipt of the webhook
-    res.status(200).send('Webhook received');
-  } catch (error) {
-    // If an error occurs, logs the error
-    console.error('Error handling webhook:', error);
-    // Responds with a 400 Bad Request status to indicate a problem with processing the webhook
-    res.status(400).send('Webhook Error');
+    res.status(200).json({ message: 'Webhook processed successfully' });
+  } catch (err) {
+    console.error('Error processing webhook:', err.message);
+    res.status(400).json({ error: 'Webhook processing failed', details: err.message });
   }
 });
 
-// Export the router so it can be used in other parts of the application
-module.exports = router;
+async function handleUserCreated(userData) {
+  try {
+    const { id, email_addresses, username, first_name, last_name } = userData;
+    const email = email_addresses[0]?.email_address;
 
+    await db.query(
+      'INSERT INTO users (clerk_id, email, username, first_name, last_name) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (clerk_id) DO NOTHING',
+      [id, email, username, first_name, last_name]
+    );
+    console.log('User created:', id);
+  } catch (error) {
+    console.error('Error handling user creation:', error);
+  }
+}
+
+async function handleUserUpdated(userData) {
+  try {
+    const { id, email_addresses, username, first_name, last_name } = userData;
+    const email = email_addresses[0]?.email_address;
+
+    await db.query(
+      'UPDATE users SET email = $2, username = $3, first_name = $4, last_name = $5 WHERE clerk_id = $1',
+      [id, email, username, first_name, last_name]
+    );
+    console.log('User updated:', id);
+  } catch (error) {
+    console.error('Error handling user update:', error);
+  }
+}
+
+async function handleUserDeleted(userData) {
+  try {
+    await db.query('DELETE FROM users WHERE clerk_id = $1', [userData.id]);
+    console.log('User deleted:', userData.id);
+  } catch (error) {
+    console.error('Error handling user deletion:', error);
+  }
+}
+
+async function handleSessionCreated(sessionData) {
+  try {
+    console.log('New session created:', sessionData.id);
+    // Adds any specific logic you want to perform when a new session is created
+  } catch (error) {
+    console.error('Error handling session creation:', error);
+  }
+}
+
+module.exports = router;
