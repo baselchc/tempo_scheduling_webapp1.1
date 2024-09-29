@@ -57,3 +57,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
 };
 
 export default NavBar;
+
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the navbar with the login page, 
+  add icons to the labels from the material icons library and make the opener visible at all times, and the buttons clickable when
+  expanded or not.*/}

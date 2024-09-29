@@ -107,3 +107,6 @@ export default function Home() {
     </div>
   );
 }
+
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a blurred container that has squared edges that surrounds the "Get Started" button
+   and the page logo, plus add an image to the background of the page that is on the public directory with the logo, it is called loginpagebackground.webp*/}

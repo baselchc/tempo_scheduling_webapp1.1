@@ -117,3 +117,6 @@ export default function EmployeePage() {
     </div>
   );
 }
+
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
+  add the blurred background and adjust they layout to match the same feel of the login page.*/}
