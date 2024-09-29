@@ -67,4 +67,4 @@ const NavBar = ({ menuOpen }) => {
   );
 };
 
-export default NavBar;
+export default NavBar
