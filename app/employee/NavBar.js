@@ -1,68 +1,57 @@
 import React from 'react';
 import Image from 'next/image';
-import { useUser, useAuth } from '@clerk/nextjs';
+import { Home, Schedule, Work, AccountCircle } from '@mui/icons-material';
+import { useUser } from '@clerk/nextjs';
 
-const NavBar = ({ menuOpen }) => {
+const NavBar = ({ menuOpen, toggleMenu }) => {
   const { user } = useUser();
-  const { signOut } = useAuth();
-
 
   const navItems = [
-    { name: "Home", href: "/" },
-    { name: "Schedule", href: "/employee/schedule" },
-    { name: "Open Shifts", href: "/employee/openshifts" },
-    { name: "Profile", href: "/employee/profile" },
+    { name: "Home", href: "/", icon: <Home /> },
+    { name: "Schedule", href: "/employee/schedule", icon: <Schedule /> },
+    { name: "Open Shifts", href: "/employee/openshifts", icon: <Work /> },
+    { name: "Profile", href: "/employee/profile", icon: <AccountCircle /> },
   ];
 
   return (
     <nav
-      className={`bg-blue-500 flex flex-col h-full min-h-screen justify-between p-4 fixed top-0 left-0 z-40 transition-transform duration-300 ease-in-out transform ${menuOpen ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0 md:w-64`}
+      className={`bg-black/50 backdrop-blur-md flex flex-col h-full min-h-screen justify-between p-4 fixed top-0 left-0 z-40 transition-all duration-300 ease-in-out transform ${menuOpen ? 'w-64' : 'w-20'}`}
     >
       <div>
         {/* Logo */}
-        <Image
-          className="dark:invert mb-6"
-          src="/images/tempo-removebg-preview.png"
-          alt="Tempo logo"
-          width={120}
-          height={40}
-          priority
-        />
+        <div className="flex justify-center items-center mb-3">
+          <div className="w-200 h-200"> {/* Set fixed size for container */}
+            <Image
+              className="dark:invert"
+              src="/images/tempo-removebg-preview.png"
+              alt="Tempo logo"
+              width={110} // Set fixed width
+              height={110} // Set fixed height
+              priority
+            />
+          </div>
+        </div>
 
         {/* Navigation Links */}
         <ul className="space-y-4">
           {navItems.map((item, index) => (
-            <li key={index} className="text-white hover:bg-blue-600 p-2 rounded">
-              <a href={item.href}>{item.name}</a>
+            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
+              <a href={item.href} className="flex items-center gap-2">
+                {item.icon}
+                {menuOpen && <span>{item.name}</span>} {/* Show name only if menu is open */}
+              </a>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* Profile and Sign Out */}
-      <div className="mt-auto flex items-center gap-4">
-        <Image
-          className="rounded-full"
-          src={user?.profileImageUrl || '/default-avatar.png'}
-          alt="Profile image"
-          width={50}
-          height={50}
-        />
-        <div>
-          <div className="font-bold text-white">
-            {user?.emailAddresses[0].emailAddress}
-          </div>
-          <div className="text-sm text-white">
-            ({user?.organizationMemberships?.[0]?.role === 'org:admin' ? 'Administrator' : 'Member'})
-          </div>
-        </div>
-        <button
-          onClick={() => signOut()}
-          className="ml-auto mt-4 rounded-full border border-transparent bg-red-500 text-white hover:bg-red-800 transition-colors p-2 w-80 h-16"
-        >
-          Sign Out →
-        </button>
-      </div>
+      {/* Hamburger Menu Button (Moved to the bottom of the navbar) */}
+      <button
+        className="text-white text-3xl p-4 z-50 cursor-pointer self-center mt-auto"
+        onClick={toggleMenu}
+      >
+        {menuOpen ? '✕' : '☰'} {/* This is the close (✕) and open (☰) icon */}
+      </button>
     </nav>
   );
 };
