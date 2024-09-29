@@ -1,52 +1,62 @@
 const express = require('express');
+const next = require('next');
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', 'backend', '.env') });
-const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
-const checkAndInsertUser = require('./middleware/checkAndInsertUser');
+const dotenv = require('dotenv');
+
+// Load environment variables
+const result = dotenv.config({ path: path.join(__dirname, '..', '.env') });
+if (result.error) {
+  throw result.error;
+}
+
+console.log('Environment variables loaded:', process.env.CLERK_WEBHOOK_SECRET ? 'CLERK_WEBHOOK_SECRET is set' : 'CLERK_WEBHOOK_SECRET is not set');
+
 const clerkWebhooks = require('./routes/clerkWebhooks');
-const db = require('./database/db');
+const { pool } = require('./database/db');
 
+const dev = process.env.NODE_ENV !== 'production';
+const nextApp = next({ dev, dir: path.join(__dirname, '..') });
+const handle = nextApp.getRequestHandler();
+
+console.log('Starting server...');
 const app = express();
-app.use(express.json());
 
-// Tests the database connection
-db.query('SELECT NOW()', (err, res) => {
-    if (err) {
-        console.error('Error executing query', err);
-    } else {
-        console.log('Database connection successful. Current time:', res.rows[0].now);
-    }
-});
+const setupServer = async () => {
+  await nextApp.prepare();
+  console.log('Next.js app prepared');
 
-// Public route for Clerk webhooks (no authentication required)
-app.use('/webhooks', clerkWebhooks);
+  // Test the database connection
+  try {
+    const res = await pool.query('SELECT NOW()');
+    console.log('Database connection successful. Current time:', res.rows[0].now);
+  } catch (err) {
+    console.error('Error connecting to the database:', err);
+  }
 
-// Protected routes for authenticated users only
-app.use('/protected-route', ClerkExpressWithAuth(), checkAndInsertUser);
+  // Use the clerkWebhooks router
+  app.use('/webhooks/clerk-webhooks', clerkWebhooks);
+  console.log('Clerk webhooks route set up');
 
-// Example protected route to verify database connection
-app.get('/users', ClerkExpressWithAuth(), checkAndInsertUser, async (req, res) => {
-    try {
-        const result = await db.query('SELECT * FROM users');
-        res.json(result.rows);
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        res.status(500).send('Error fetching users');
-    }
-});
+  // Handle all other routes with Next.js
+  app.all('*', (req, res) => {
+    return handle(req, res);
+  });
 
-// Serves static files from the React app
-app.use(express.static(path.join(__dirname, '..', 'app', 'employee')));
+  return app;
+};
 
+if (require.main === module) {
+  setupServer().then((server) => {
+    const port = process.env.PORT || 5000;
+    server.listen(port, (err) => {
+      if (err) throw err;
+      console.log(`> Server ready on http://localhost:${port}`);
+      console.log('> Database server and Clerk webhooks are active');
+    });
+  }).catch(err => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  });
+}
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '..', 'app', 'employee', 'page.js'));
-});
-
-// Starts the server on port 5000
-const port = process.env.PORT || 5000;
-app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-});
-
-module.exports = app;
+module.exports = setupServer;
