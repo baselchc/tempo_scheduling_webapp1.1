@@ -1,7 +1,6 @@
-// app/employee/page.js or app/employee/EmployeePage.js
 "use client";
 import React from 'react';
-import EmployeeLayout from './layout'; // Ensure this is the correct path
+import EmployeeLayout from './Layout'; // Ensure this is the correct path
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
 
@@ -15,6 +14,9 @@ export default function EmployeePage() {
     { date: "2024-09-21", shift: "10 AM - 6 PM", status: "Pending" },
     { date: "2024-09-22", shift: "11 AM - 7 PM", status: "Confirmed" },
   ];
+
+  console.log('User:', user); // Debug: log user information
+  console.log('Schedule Data:', scheduleData); // Debug: log schedule data
 
   return (
     <EmployeeLayout>
@@ -57,7 +59,6 @@ export default function EmployeePage() {
         ) : (
           <p className="text-sm text-gray-500">Loading user information...</p>
         )}
-        
       </div>
     </EmployeeLayout>
   );

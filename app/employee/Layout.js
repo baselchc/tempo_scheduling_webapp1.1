@@ -1,9 +1,7 @@
-// app/employee/Layout.js
-// app/employee/Layout.js
 "use client";
 import React from 'react';
-import NavBar from '../employee/components/NavBar'; // Adjusted path to go up one more level
-import TopNavBar from '../employee/components/TopNavBar'; // Adjusted path
+import NavBar from './components/NavBar'; // Adjust path as needed
+import TopNavBar from './components/TopNavBar'; // Adjust path as needed
 
 const EmployeeLayout = ({ children }) => {
   return (
