@@ -20,13 +20,24 @@ export default function EmployeePage() {
 
   return (
     <EmployeeLayout>
-      <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">
-        Welcome to the Employee Dashboard
+      <h1 className="text-4xl font-bold text-center text-gray-800 mb-2">
+        Employee Dashboard
       </h1>
 
+      {/* User Information */}
+      <div className="text-center">
+        {user ? (
+          <>
+            <h3 className="text-xl font-bold text-gray-500">Hello, {user.firstName} {user.lastName}!</h3>
+            <p className="text-sm text-gray-500">You are signed in as a {user.publicMetadata?.role || "Member"}.</p>
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">Loading user information...</p>
+        )}
+      </div>
       {/* Schedule Table */}
       <div className="mt-8 bg-white p-6 shadow-md rounded-lg">
-        <h2 className="text-2xl font-semibold mb-4">Your Schedule</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-black">Your Schedule</h2>
         <table className="min-w-full bg-white">
           <thead>
             <tr className="bg-gray-300">
@@ -49,17 +60,7 @@ export default function EmployeePage() {
         </table>
       </div>
 
-      {/* User Information */}
-      <div className="mt-6 text-center">
-        {user ? (
-          <>
-            <h3 className="text-xl font-bold">Hello, {user.firstName} {user.lastName}!</h3>
-            <p className="text-sm text-gray-500">You are signed in as a {user.publicMetadata?.role || "Member"}.</p>
-          </>
-        ) : (
-          <p className="text-sm text-gray-500">Loading user information...</p>
-        )}
-      </div>
+      
     </EmployeeLayout>
   );
 }
