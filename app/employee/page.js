@@ -6,7 +6,7 @@ import NavBar from './components/NavBar'; // Import the NavBar component
 import { AccountCircle, Notifications } from '@mui/icons-material'; // Icons for user and notifications
 import Image from 'next/image'; // Correct Image import
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-import EmployeeCalendar from './components/ScheduleCalendar'; // Import the Calendar component
+import EmployeeCalendar from './components/Calendar'; // Import the Calendar component
 
 export default function EmployeePage() {
   const { signOut } = useAuth();
