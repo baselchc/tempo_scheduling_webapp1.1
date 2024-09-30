@@ -1,72 +1,77 @@
 const express = require('express');
 const router = express.Router();
-const db = require('./db');
-const { Webhook } = require('@clerk/clerk-sdk-node');
-require('dotenv').config();
+const { Webhook, WebhookVerificationError } = require('svix');
+const db = require('../database/db');
 
+router.post('/', express.raw({type: 'application/json'}), async (req, res) => {
+  console.log('Received webhook request');
+  console.log('Request headers:', req.headers);
+ 
+  const secret = process.env.CLERK_WEBHOOK_SECRET;
+  console.log('Webhook secret:', secret ? `${secret.substr(0, 3)}...${secret.substr(-3)}` : 'Secret is not set');
+ 
+  if (!secret) {
+    console.error('CLERK_WEBHOOK_SECRET is not set in the environment variables');
+    return res.status(500).json({ error: 'Server configuration error' });
+  }
 
-// Sets the Clerk webhook secret key 
-const CLERK_WEBHOOK_SECRET = 'clerk webhook will go here';
+  // Get the headers
+  const svix_id = req.headers['svix-id'];
+  const svix_timestamp = req.headers['svix-timestamp'];
+  const svix_signature = req.headers['svix-signature'];
 
-// Uses express.raw() middleware to parse the raw body for 'application/json' content type
-router.post('/clerk-webhooks', express.raw({ type: 'application/json' }), async (req, res) => {
-  // Accesses the raw request body payload
+  console.log('Svix headers:', { svix_id, svix_timestamp, svix_signature });
+
+  // If there are missing headers, error out
+  if (!svix_id || !svix_timestamp || !svix_signature) {
+    console.error('Error: Missing required Svix headers');
+    return res.status(400).json({ error: 'Missing required headers' });
+  }
+
+  // Get the body
   const payload = req.body;
-  // Retrieves the 'clerk-signature' header from the request for webhook verification
-  const signature = req.headers['clerk-signature'];
+  console.log('Raw payload:', payload.toString());
+  const body = payload; // Express.raw() already gives us a Buffer
 
-  let event;
-
+  const webhook = new Webhook(secret);
+ 
   try {
-    // Verifys the webhook payload using Clerk's Webhook.verify method
-    // This ensures the request is genuinely from Clerk and hasn't been tampered with
-    event = Webhook.verify(payload, signature, CLERK_WEBHOOK_SECRET);
+    const verifiedPayload = webhook.verify(body, {
+      "svix-id": svix_id,
+      "svix-timestamp": svix_timestamp,
+      "svix-signature": svix_signature
+    });
+   
+    console.log('Verified webhook payload:', verifiedPayload);
 
-    // Destructures the 'type' of event and the associated 'data' from the verified event object
-    const { type, data } = event;
-
-    // Handles different types of webhook events
-    if (type === 'user.updated') {
-      // Event when a user's information is updated in Clerk
-
-      // Extracts the Clerk user ID from the event data
-      const clerkUserId = data.id;
-      // Constructs the user's full name by combining first and last names, handling possible undefined values
-      const name = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-      // Gets the user's primary email address from the event data
-      const email = data.email_addresses[0]?.email_address;
-
-      // Updates the user's name and email in the database based on their Clerk user ID
-      await db.query(
-        'UPDATE users SET name = $1, email = $2 WHERE clerk_user_id = $3',
-        [name, email, clerkUserId]
-      );
-
-      // Logs a message indicating that the user was updated successfully
-      console.log('User updated:', clerkUserId);
-    } else if (type === 'user.deleted') {
-      // Events when a user is deleted from Clerk
-
-      // Extracts the Clerk user ID from the event data
-      const clerkUserId = data.id;
-
-      // Deletes the user from the database using their Clerk user ID
-      await db.query('DELETE FROM users WHERE clerk_user_id = $1', [clerkUserId]);
-
-      // Logs a message indicating that the user was deleted successfully
-      console.log('User deleted:', clerkUserId);
+    if (verifiedPayload.type === 'user.created') {
+      const { id, email_addresses, username, first_name, last_name } = verifiedPayload.data;
+     
+      const primaryEmail = email_addresses.find(email => email.id === verifiedPayload.data.primary_email_address_id).email_address;
+      const query = `
+        INSERT INTO users (clerk_user_id, email, username, first_name, last_name)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (clerk_user_id) DO UPDATE
+        SET email = $2, username = $3, first_name = $4, last_name = $5
+      `;
+      const values = [id, primaryEmail, username, first_name, last_name];
+      try {
+        await db.query(query, values);
+        console.log('User inserted/updated in database:', id);
+      } catch (dbError) {
+        console.error('Error inserting/updating user in database:', dbError);
+      }
     }
-
-    // Responds with a 200 OK status to acknowledge receipt of the webhook
-    res.status(200).send('Webhook received');
-  } catch (error) {
-    // If an error occurs, logs the error
-    console.error('Error handling webhook:', error);
-    // Responds with a 400 Bad Request status to indicate a problem with processing the webhook
-    res.status(400).send('Webhook Error');
+    res.status(200).json({ message: 'Webhook processed successfully' });
+  } catch (err) {
+    if (err instanceof WebhookVerificationError) {
+      console.error('Webhook verification failed:', err.message);
+      console.error('Error details:', err);
+      return res.status(400).json({ error: 'Webhook verification failed' });
+    }
+    console.error('Error processing webhook:', err);
+    res.status(400).json({ message: 'Error processing webhook' });
   }
 });
 
-// Export the router so it can be used in other parts of the application
 module.exports = router;
-
