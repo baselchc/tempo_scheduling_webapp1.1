@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Image from 'next/image';
-import { Home, Schedule, Work, AccountCircle } from '@mui/icons-material';
+import { Home, Schedule, Work, AccountCircle } from '@mui/icons-material'; // Import Material UI icons
 import { useUser } from '@clerk/nextjs';
 
 const NavBar = ({ menuOpen, toggleMenu }) => {
@@ -19,17 +19,15 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
     >
       <div>
         {/* Logo */}
-        <div className="flex justify-center items-center mb-3">
-          <div className="w-200 h-200"> {/* Set fixed size for container */}
-            <Image
-              className="dark:invert"
-              src="/images/tempo-removebg-preview.png"
-              alt="Tempo logo"
-              width={110} // Set fixed width
-              height={110} // Set fixed height
-              priority
-            />
-          </div>
+        <div className={`flex items-center justify-center mb-3 ${menuOpen ? '' : ''}`}>
+          <Image
+            className="dark:invert"
+            src="/images/tempo-removebg-preview.png"
+            alt="Tempo logo"
+            width={menuOpen ? 150 : 60} // Bigger logo in both expanded and collapsed views
+            height={menuOpen ? 50 : 50}
+            priority
+          />
         </div>
 
         {/* Navigation Links */}
@@ -56,4 +54,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
   );
 };
 
-export default NavBar
+export default NavBar;
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the navbar with the login page, 
+  add icons to the labels from the material icons library and make the opener visible at all times, and the buttons clickable when
+  expanded or not.*/}
