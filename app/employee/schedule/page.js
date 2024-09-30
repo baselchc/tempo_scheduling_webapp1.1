@@ -6,7 +6,7 @@ import NavBar from '../components/NavBar'; // Import the NavBar component
 import { Notifications } from '@mui/icons-material'; // Import Material UI icons for notifications
 import Image from 'next/image'; // Correct Image import
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-import EmployeeCalendar from '../components/ScheduleCalendar'; // Import the Calendar component
+import EmployeeCalendar from '../components/Calendar'; // Import the Calendar component
 
 export default function SchedulePage() {
   const { signOut } = useAuth();
