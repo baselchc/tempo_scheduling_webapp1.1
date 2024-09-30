@@ -17,7 +17,7 @@ const TopNavBar = () => {
   };
 
   return (
-    <div className="bg-green-800 p-4 text-white flex justify-between items-center">
+    <div className="bg-blue-500 p-4 text-white flex justify-between items-center mb-2">
       <h2 className="text-md">Top Navigation</h2>
       <div className="flex space-x-4">
         {/* Announcement Bell Icon */}
