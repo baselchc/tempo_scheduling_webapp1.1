@@ -2,13 +2,13 @@
 
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
-import NavBar from './components/NavBar'; // Import the NavBar component
-import { AccountCircle, Notifications } from '@mui/icons-material'; // Icons for user and notifications
+import NavBar from '../components/NavBar'; // Import the NavBar component
+import { Notifications } from '@mui/icons-material'; // Import Material UI icons for notifications
 import Image from 'next/image'; // Correct Image import
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-import EmployeeCalendar from './components/ScheduleCalendar'; // Import the Calendar component
+import EmployeeCalendar from '../components/ScheduleCalendar'; // Import the Calendar component
 
-export default function EmployeePage() {
+export default function SchedulePage() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -72,7 +72,7 @@ export default function EmployeePage() {
               {/* Edit Profile Option - Navigate to /employee/profile */}
               <li
                 className="p-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => router.push('/employee/profile')} // Navigate to the profile page
+                onClick={() => router.push('/employee/profile')}
               >
                 Edit Profile
               </li>
@@ -90,26 +90,17 @@ export default function EmployeePage() {
       {/* Main content space */}
       <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
         <h1 className="text-4xl font-bold text-center text-white mb-8">
-          Welcome to the Employee Dashboard
+          Your Schedule
         </h1>
-        {/* User Information */}
-        <div className="mt-6 text-center">
-        {user ? (
-          <>
-            <h3 className="text-xl font-bold">Hello, {user.firstName} {user.lastName}!</h3>
-            <p className="text-sm text-gray-500"> {user.publicMetadata?.role || ""}.</p>
-          </>
-        ) : (
-          <p className="text-sm text-gray-500">Loading user information...</p>
-        )}
-      </div>
 
         {/* Calendar Component */}
-        <EmployeeCalendar />
-        
+        <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
+          <EmployeeCalendar />
+        </div>
       </div>
     </div>
   );
 }
- {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
-  add the blurred background and adjust they layout to match the same feel of the login page.*/}
+
+ {/* Code enhanced by AI (ChatGPT 4o) Prompt was: Create a schedule page.js that shows the exact 
+  same calendar that is on the employee page.js and keep the same exact layout, functionality and looks */}
