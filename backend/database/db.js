@@ -7,7 +7,7 @@ console.log('Database configuration:', {
   host: process.env.POSTGRES_HOST,
   database: process.env.POSTGRES_DB,
   port: process.env.POSTGRES_PORT,
-  // We're not logging the password for security reasons
+  // Not logging the password for security reasons
 });
 
 const pool = new Pool({
