@@ -89,7 +89,7 @@ export default function EmployeePage() {
 
       {/* Main content space */}
       <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
-        <h1 className="text-4xl font-bold text-center text-white mb-8">
+        <h1 className="text-4xl font-bold text-left text-white mb-8">
           Welcome to the Employee Dashboard
         </h1>
         {/* User Information */}
