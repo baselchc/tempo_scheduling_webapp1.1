@@ -42,6 +42,16 @@ export default function SchedulePage() {
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
+  // Get the start and end of the week for the selected date
+  const startDateOfWeek = startOfWeek(selectedDate);
+  const endDateOfWeek = endOfWeek(selectedDate);
+
+  // Weekly Schedule filter
+  const weeklySchedule = scheduleData.filter(item => {
+    const itemDate = new Date(item.date);
+    return itemDate >= startDateOfWeek && itemDate <= endDateOfWeek;
+  });
+
   // Filter schedule based on selected date
   const filteredSchedule = scheduleData.filter((item) =>
     selectedDate
@@ -60,20 +70,14 @@ export default function SchedulePage() {
     .filter(item => item.status === "Confirmed")
     .reduce((total, item) => total + calculateShiftHours(item.shift), 0);
 
+  const totalScheduledHours = weeklySchedule.reduce((total, item) => total + calculateShiftHours(item.shift), 0);
+  const remainingHours = totalScheduledHours - totalHoursWorked;
+  const totalEarnings = totalHoursWorked * 17; // Assuming $17 per hour
+
   // Reset date to today
   const resetDate = () => {
     setSelectedDate(new Date());
   };
-
-  // Get the start and end of the week for the selected date
-  const startDateOfWeek = startOfWeek(selectedDate);
-  const endDateOfWeek = endOfWeek(selectedDate);
-
-  // Weekly Schedule filter
-  const weeklySchedule = scheduleData.filter(item => {
-    const itemDate = new Date(item.date);
-    return itemDate >= startDateOfWeek && itemDate <= endDateOfWeek;
-  });
 
   return (
     <div className="relative min-h-screen text-black font-arial">
@@ -240,6 +244,17 @@ export default function SchedulePage() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+        <div className="mt-4 text-white p-4 rounded-lg border-2 border-blue-500 bg-blue-700/50">
+          <div className="mt-4 text-white font-bold">
+            Total scheduled hours this week: {totalScheduledHours} hours
+          </div>
+          <div className="mt-2 text-white font-bold">
+            Remaining hours to work: {remainingHours} hours
+          </div>
+          <div className="mt-2 text-white font-bold">
+            Total earnings: ${totalEarnings}
           </div>
         </div>
       </div>
