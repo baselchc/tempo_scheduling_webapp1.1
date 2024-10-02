@@ -7,6 +7,9 @@ import { Notifications } from '@mui/icons-material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { format, differenceInHours, parse, startOfWeek, endOfWeek } from 'date-fns';
+import Papa from 'papaparse'; // For CSV export
+import jsPDF from 'jspdf'; // For PDF export
+import html2canvas from 'html2canvas'; // For PDF export
 
 export default function SchedulePage() {
   const { signOut } = useAuth();
@@ -15,6 +18,7 @@ export default function SchedulePage() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false); // New state for weekly schedule view
   const [scheduleData] = useState([
     { date: "2024-10-02", shift: "9 AM - 5 PM", status: "Confirmed" },
     { date: "2024-10-03", shift: "10 AM - 6 PM", status: "Confirmed" },
@@ -31,7 +35,6 @@ export default function SchedulePage() {
 
   const router = useRouter();
 
-  // Set the selected date to today if it is null
   useEffect(() => {
     if (!selectedDate) {
       setSelectedDate(new Date());
@@ -42,18 +45,15 @@ export default function SchedulePage() {
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
-  // Get the start and end of the week for the selected date
   const startDateOfWeek = startOfWeek(selectedDate);
   const endDateOfWeek = endOfWeek(selectedDate);
 
-  // Weekly Schedule filter
   const weeklySchedule = scheduleData.filter(item => {
     const itemDate = new Date(item.date);
     return itemDate >= startDateOfWeek && itemDate <= endDateOfWeek;
   });
 
-  // Filter schedule based on selected date
-  const filteredSchedule = scheduleData.filter((item) =>
+  const filteredSchedule = showWeeklySchedule ? weeklySchedule : scheduleData.filter((item) =>
     selectedDate
       ? format(new Date(item.date), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
       : true
@@ -74,9 +74,37 @@ export default function SchedulePage() {
   const remainingHours = totalScheduledHours - totalHoursWorked;
   const totalEarnings = totalHoursWorked * 17; // Assuming $17 per hour
 
-  // Reset date to today
   const resetDate = () => {
     setSelectedDate(new Date());
+    setShowWeeklySchedule(false); // Reset to show daily schedule
+  };
+
+  // CSV Export Function
+  const exportToCSV = () => {
+    const csv = Papa.unparse(weeklySchedule);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'schedule.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // PDF Export Function
+  const exportToPDF = () => {
+    const pdf = new jsPDF('portrait', 'pt', 'a4');
+    const table = document.getElementById('schedule-table');
+    html2canvas(table).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 20, 20);
+      pdf.save('schedule.pdf');
+    });
+  };
+
+  // Function to show weekly schedule
+  const viewWeeklySchedule = () => {
+    setShowWeeklySchedule(true);
   };
 
   return (
@@ -154,21 +182,22 @@ export default function SchedulePage() {
 
         <div className="flex justify-center mb-4">
           <button
-            onClick={() => setSelectedDate(new Date())}
-            className="bg-green-500 text-white px-4 py-2 rounded"
+            onClick={viewWeeklySchedule}
+            className="bg-green-500 text-white px-6 py-3 font-bold text-lg rounded"
           >
             View Weekly Schedule
           </button>
         </div>
 
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-          <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+          <table id="schedule-table" className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
             <thead className="bg-blue-500 text-white">
-              <tr>
-                <th className="px-6 py-3 text-left font-medium">Date</th>
-                <th className="px-6 py-3 text-left font-medium">Shift</th>
-                <th className="px-6 py-3 text-left font-medium">Status</th>
-              </tr>
+            <tr>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Date</th>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Shift</th>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Status</th>
+            </tr>
+
             </thead>
             <tbody>
               {filteredSchedule.length > 0 ? (
@@ -176,85 +205,39 @@ export default function SchedulePage() {
                   <tr key={index} className="border-b">
                     <td className="px-6 py-4">{item.date}</td>
                     <td className="px-6 py-4">{item.shift}</td>
-                    <td
-                      className={`px-6 py-4 ${
-                        item.status === "Confirmed"
-                          ? "text-green-500"
-                          : item.status === "Dropped"
-                          ? "text-red-500"
-                          : "text-yellow-500"
-                      }`}
-                    >
-                      {item.status}
-                    </td>
+                    <td className="px-6 py-4">{item.status}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="3" className="text-center p-4">
-                    No schedule available for this day.
+                  <td colSpan="3" className="text-center py-4">
+                    No shifts found for this date.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
 
-          <div className="mt-4 text-white font-bold">
-            Total hours worked this week: {totalHoursWorked} hours
+          <div className="mt-4 text-white p-10 rounded-lg border-2 border-blue-500 bg-blue-700/50">
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Hours Worked: {totalHoursWorked}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Scheduled Hours: {totalScheduledHours}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Remaining Hours: {remainingHours}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem' }}>Total Earnings: ${totalEarnings}</p>
           </div>
-        </div>
 
-        {/* Display Weekly Schedule */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Weekly Schedule</h2>
-          <div className="bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-            <table className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-              <thead className="bg-blue-500 text-white">
-                <tr>
-                  <th className="px-6 py-3 text-left font-medium">Date</th>
-                  <th className="px-6 py-3 text-left font-medium">Shift</th>
-                  <th className="px-6 py-3 text-left font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {weeklySchedule.length > 0 ? (
-                  weeklySchedule.map((item, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="px-6 py-4">{item.date}</td>
-                      <td className="px-6 py-4">{item.shift}</td>
-                      <td
-                        className={`px-6 py-4 ${
-                          item.status === "Confirmed"
-                            ? "text-green-500"
-                            : item.status === "Dropped"
-                            ? "text-red-500"
-                            : "text-yellow-500"
-                        }`}
-                      >
-                        {item.status}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="3" className="text-center p-4">
-                      No schedule available for this week.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div className="mt-4 text-white p-4 rounded-lg border-2 border-blue-500 bg-blue-700/50">
-          <div className="mt-4 text-white font-bold">
-            Total scheduled hours this week: {totalScheduledHours} hours
-          </div>
-          <div className="mt-2 text-white font-bold">
-            Remaining hours to work: {remainingHours} hours
-          </div>
-          <div className="mt-2 text-white font-bold">
-            Total earnings: ${totalEarnings}
+          <div className="mt-4 flex justify-between">
+            <button
+              onClick={exportToCSV}
+              className="bg-yellow-500 text-white px-4 py-2 rounded"
+            >
+              Export to CSV
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Export to PDF
+            </button>
           </div>
         </div>
       </div>
