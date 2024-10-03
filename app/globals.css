@@ -25,3 +25,24 @@ body {
     text-wrap: balance;
   }
 }
+/* In your globals.css or a CSS module */
+.react-calendar {
+  border: none; /* Remove default border */
+  border-radius: 8px; /* Rounded corners */
+}
+
+.react-calendar__tile {
+  border-radius: 4px; /* Rounded corners for each tile */
+}
+
+.react-calendar__tile:hover {
+  background-color: #f0f0f0; /* Light gray on hover */
+}
+
+.highlight-sunday {
+  background-color: #ffcccc; /* Custom background for Sundays */
+}
+
+.highlight-sunday:hover {
+  background-color: #ff9999; /* Darker shade on hover */
+}

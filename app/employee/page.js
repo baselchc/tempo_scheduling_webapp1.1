@@ -6,7 +6,7 @@ import NavBar from './components/NavBar'; // Import the NavBar component
 import { AccountCircle, Notifications } from '@mui/icons-material'; // Icons for user and notifications
 import Image from 'next/image'; // Correct Image import
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-import EmployeeCalendar from './components/ScheduleCalendar'; // Import the Calendar component
+import EmployeeCalendar from './components/Calendar'; // Import the Calendar component
 
 export default function EmployeePage() {
   const { signOut } = useAuth();
@@ -89,7 +89,7 @@ export default function EmployeePage() {
 
       {/* Main content space */}
       <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
-        <h1 className="text-4xl font-bold text-center text-white mb-8">
+        <h1 className="text-4xl font-bold text-left text-white mb-8">
           Welcome to the Employee Dashboard
         </h1>
         {/* User Information */}

@@ -1,4 +1,3 @@
-// components/ScheduleCalendar.js
 "use client";
 import React, { useState, useEffect } from 'react';
 
@@ -59,6 +58,13 @@ const EmployeeCalendar = () => {
   // Define the hourly range
   const hoursRange = Array.from({ length: 15 }, (_, i) => i + 8); // 8 AM to 10 PM
 
+  // Function to format time in AM/PM format
+  const formatTime = (hour) => {
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const formattedHour = hour % 12 === 0 ? 12 : hour % 12;
+    return `${formattedHour}${ampm}`;
+  };
+
   return (
     <div className="bg-white shadow-lg rounded-lg p-6">
       <h2 className="text-2xl font-semibold mb-4 text-center">Upcoming Schedule (Next 7 Days)</h2>
@@ -66,9 +72,9 @@ const EmployeeCalendar = () => {
       <table className="min-w-full border-collapse">
         <thead>
           <tr>
-            <th className="p-2 font-medium border-r border-black">Time</th>
+            <th className="p-2 font-medium border-b border-black"></th>
             {scheduleData.map((item, index) => (
-              <th key={index} className="p-2 font-medium border-r border-black">
+              <th key={index} className="p-2 font-medium border-b border-black">
                 {new Date(item.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'numeric', day: 'numeric' })}
               </th>
             ))}
@@ -77,7 +83,7 @@ const EmployeeCalendar = () => {
         <tbody>
           {hoursRange.map((hour, index) => (
             <tr key={index}>
-              <td className="p-2 font-medium border-r border-black">{`${hour}:00`}</td>
+              <td className="p-2 font-medium border-b border-black">{formatTime(hour)}</td>
               {scheduleData.map((item, dayIndex) => {
                 // Find shifts for the current hour
                 const shiftsForDay = item.shifts || [];
@@ -90,7 +96,7 @@ const EmployeeCalendar = () => {
                 const displayShiftTime = currentShift && hour === currentShift.start;
 
                 return (
-                  <td key={item.date} className={`${cellClass} p-2 border-r border-black`}>
+                  <td key={item.date} className={`${cellClass} p-2 border-b border-black`}>
                     {displayShiftTime ? `${currentShift.start}:00 - ${currentShift.end}:00` : ""}
                   </td>
                 );
@@ -102,7 +108,7 @@ const EmployeeCalendar = () => {
 
       <style jsx>{`
         table {
-          font-family: 'Calibri', sans-serif; /* Change to Calibri font */
+          font-family: 'Arial', sans-serif; /* Change to a different font */
         }
         th, td {
           text-align: center; /* Center align text */
