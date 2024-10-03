@@ -1,12 +1,15 @@
 "use client";
 
 import { useUser, useAuth } from '@clerk/nextjs';
-import { useState } from 'react';
-import NavBar from '../components/NavBar'; // Import the NavBar component
-import { Notifications } from '@mui/icons-material'; // Import Material UI icons for notifications
-import Image from 'next/image'; // Correct Image import
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-import EmployeeCalendar from '../components/Calendar'; // Import the Calendar component
+import { useState, useEffect } from 'react';
+import NavBar from '../components/NavBar';
+import { Notifications } from '@mui/icons-material';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { format, differenceInHours, parse, startOfWeek, endOfWeek } from 'date-fns';
+import Papa from 'papaparse'; // For CSV export
+import jsPDF from 'jspdf'; // For PDF export
+import html2canvas from 'html2canvas'; // For PDF export
 
 export default function SchedulePage() {
   const { signOut } = useAuth();
@@ -14,24 +17,98 @@ export default function SchedulePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false); // New state for weekly schedule view
+  const [scheduleData] = useState([
+    { date: "2024-10-02", shift: "9 AM - 5 PM", status: "Confirmed" },
+    { date: "2024-10-03", shift: "10 AM - 6 PM", status: "Confirmed" },
+    { date: "2024-10-04", shift: "11 AM - 7 PM", status: "Dropped" },
+    { date: "2024-10-05", shift: "12 PM - 8 PM", status: "Confirmed" },
+    { date: "2024-10-06", shift: "1 PM - 9 PM", status: "Confirmed" },
+    { date: "2024-10-07", shift: "9 AM - 5 PM", status: "Confirmed" },
+    { date: "2024-10-08", shift: "8 AM - 4 PM", status: "Extra Shift" },
+    { date: "2024-10-09", shift: "9 AM - 5 PM", status: "Confirmed" },
+    { date: "2024-10-10", shift: "10 AM - 6 PM", status: "Confirmed" },
+    { date: "2024-10-11", shift: "11 AM - 7 PM", status: "Dropped" },
+    { date: "2024-10-12", shift: "12 PM - 8 PM", status: "Confirmed" },
+  ]);
 
-  const router = useRouter(); // Initialize the router
+  const router = useRouter();
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);  // Toggle sidebar
+  useEffect(() => {
+    if (!selectedDate) {
+      setSelectedDate(new Date());
+    }
+  }, [selectedDate]);
+
+  const toggleMenu = () => setMenuOpen(!menuOpen);
+  const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
+  const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
+
+  const startDateOfWeek = startOfWeek(selectedDate);
+  const endDateOfWeek = endOfWeek(selectedDate);
+
+  const weeklySchedule = scheduleData.filter(item => {
+    const itemDate = new Date(item.date);
+    return itemDate >= startDateOfWeek && itemDate <= endDateOfWeek;
+  });
+
+  const filteredSchedule = showWeeklySchedule ? weeklySchedule : scheduleData.filter((item) =>
+    selectedDate
+      ? format(new Date(item.date), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
+      : true
+  );
+
+  const calculateShiftHours = (shift) => {
+    const [start, end] = shift.split(' - ');
+    const startDate = parse(start, 'h a', new Date());
+    const endDate = parse(end, 'h a', new Date());
+    return differenceInHours(endDate, startDate);
   };
 
-  const toggleNotifications = () => {
-    setNotificationsOpen(!notificationsOpen);
+  const totalHoursWorked = scheduleData
+    .filter(item => item.status === "Confirmed")
+    .reduce((total, item) => total + calculateShiftHours(item.shift), 0);
+
+  const totalScheduledHours = weeklySchedule.reduce((total, item) => total + calculateShiftHours(item.shift), 0);
+  const remainingHours = totalScheduledHours - totalHoursWorked;
+  const totalEarnings = totalHoursWorked * 17; // Assuming $17 per hour
+
+  const resetDate = () => {
+    setSelectedDate(new Date());
+    setShowWeeklySchedule(false); // Reset to show daily schedule
   };
 
-  const toggleProfileMenu = () => {
-    setProfileMenuOpen(!profileMenuOpen);
+  // CSV Export Function
+  const exportToCSV = () => {
+    const csv = Papa.unparse(weeklySchedule);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.setAttribute('download', 'schedule.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // PDF Export Function
+  const exportToPDF = () => {
+    const pdf = new jsPDF('portrait', 'pt', 'a4');
+    const table = document.getElementById('schedule-table');
+    html2canvas(table).then((canvas) => {
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 20, 20);
+      pdf.save('schedule.pdf');
+    });
+  };
+
+  // Function to show weekly schedule
+  const viewWeeklySchedule = () => {
+    setShowWeeklySchedule(true);
   };
 
   return (
-    <div className="relative min-h-screen text-black">
-      {/* Blurred background image */}
+    <div className="relative min-h-screen text-black font-arial">
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
         style={{
@@ -39,15 +116,11 @@ export default function SchedulePage() {
         }}
       ></div>
 
-      {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-      {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
-        {/* Notifications Bell */}
         <button onClick={toggleNotifications} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
-          {/* Notification Popup */}
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
               <p>No new notifications.</p>
@@ -55,11 +128,10 @@ export default function SchedulePage() {
           )}
         </button>
 
-        {/* User Profile Dropdown */}
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'} // Use local default avatar image
+            src={user?.profileImageUrl || '/images/default-avatar.png'}
             alt="Profile image"
             width={40}
             height={40}
@@ -69,7 +141,6 @@ export default function SchedulePage() {
         {profileMenuOpen && (
           <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
             <ul>
-              {/* Edit Profile Option - Navigate to /employee/profile */}
               <li
                 className="p-2 hover:bg-gray-100 cursor-pointer"
                 onClick={() => router.push('/employee/profile')}
@@ -87,20 +158,89 @@ export default function SchedulePage() {
         )}
       </div>
 
-      {/* Main content space */}
-      <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
+      <div className="flex-grow p-20 ml-0 md:ml-64 transition-all z-10">
         <h1 className="text-4xl font-bold text-center text-white mb-8">
           Your Schedule
         </h1>
 
-        {/* Calendar Component */}
+        <div className="flex justify-center mb-4">
+          <input
+            type="date"
+            value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+            onChange={(e) =>
+              setSelectedDate(e.target.value ? new Date(e.target.value) : null)
+            }
+            className="border p-2 rounded"
+          />
+          <button
+            onClick={resetDate}
+            className="ml-4 bg-blue-500 text-white px-4 py-2 rounded"
+          >
+            Today
+          </button>
+        </div>
+
+        <div className="flex justify-center mb-4">
+          <button
+            onClick={viewWeeklySchedule}
+            className="bg-green-500 text-white px-6 py-3 font-bold text-lg rounded"
+          >
+            View Weekly Schedule
+          </button>
+        </div>
+
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-          <EmployeeCalendar />
+          <table id="schedule-table" className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
+            <thead className="bg-blue-500 text-white">
+            <tr>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Date</th>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Shift</th>
+              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Status</th>
+            </tr>
+
+            </thead>
+            <tbody>
+              {filteredSchedule.length > 0 ? (
+                filteredSchedule.map((item, index) => (
+                  <tr key={index} className="border-b">
+                    <td className="px-6 py-4">{item.date}</td>
+                    <td className="px-6 py-4">{item.shift}</td>
+                    <td className="px-6 py-4">{item.status}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" className="text-center py-4">
+                    No shifts found for this date.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+
+          <div className="mt-4 text-white p-10 rounded-lg border-2 border-blue-500 bg-blue-700/50">
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Hours Worked: {totalHoursWorked}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Scheduled Hours: {totalScheduledHours}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Remaining Hours: {remainingHours}</p>
+            <p className="text-lg" style={{ fontSize: '1.25rem' }}>Total Earnings: ${totalEarnings}</p>
+          </div>
+
+          <div className="mt-4 flex justify-between">
+            <button
+              onClick={exportToCSV}
+              className="bg-yellow-500 text-white px-4 py-2 rounded"
+            >
+              Export to CSV
+            </button>
+            <button
+              onClick={exportToPDF}
+              className="bg-red-500 text-white px-4 py-2 rounded"
+            >
+              Export to PDF
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
- {/* Code enhanced by AI (ChatGPT 4o) Prompt was: Create a schedule page.js that shows the exact 
-  same calendar that is on the employee page.js and keep the same exact layout, functionality and looks */}
