@@ -77,7 +77,7 @@ const takeShift = (shiftId) => {
   };
 
   return (
-    <div className="relative min-h-screen text-black">
+    <div className="relative min-h-screen text-black"> 
       {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
@@ -128,7 +128,7 @@ const takeShift = (shiftId) => {
       </div>
 
       {/* Main content space */}
-      <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">
           Open Shifts
         </h1>

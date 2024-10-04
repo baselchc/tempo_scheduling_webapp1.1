@@ -108,7 +108,7 @@ export default function EmployeeProfile() {
       </div>
 
       {/* Main content space */}
-      <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">Profile Information</h1>
 
         {/* Profile Information Section */}

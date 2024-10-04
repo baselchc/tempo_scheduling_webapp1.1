@@ -88,7 +88,7 @@ export default function EmployeePage() {
       </div>
 
       {/* Main content space */}
-      <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-left text-white mb-8">
           Welcome to the Employee Dashboard
         </h1>
