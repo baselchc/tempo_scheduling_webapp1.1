@@ -2,6 +2,7 @@ const express = require('express');
 const next = require('next');
 const path = require('path');
 const dotenv = require('dotenv');
+const userRoutes = require('./routes/userRoutes');
 
 // Load environment variables from .env file
 // This is crucial for keeping sensitive info out of the codebase
@@ -41,6 +42,7 @@ const setupServer = async () => {
   // Set up the Clerk webhooks route
   // This is where Clerk will send user-related events
   app.use('/webhooks/clerk-webhooks', clerkWebhooks);
+  app.use('/api/users', userRoutes);
   console.log('Clerk webhooks route set up');
 
   // Handle all other routes with Next.js
