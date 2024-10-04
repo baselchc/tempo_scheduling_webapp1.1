@@ -11,8 +11,8 @@
     "start:full": "npm run build && npm run start:backend"
   },
   "dependencies": {
-    "@clerk/clerk-sdk-node": "^5.0.42",
-    "@clerk/nextjs": "^5.6.3",
+    "@clerk/clerk-sdk-node": "^5.0.48",
+    "@clerk/nextjs": "^5.7.1",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
