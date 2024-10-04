@@ -1,12 +1,13 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
 import NavBar from '../components/NavBar'; // Import the NavBar component
 import Image from 'next/image'; // Import Next.js Image
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
 
 export default function EmployeeProfile() {
+  const { signOut } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
