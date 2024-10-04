@@ -166,21 +166,21 @@ export default function EmployeeProfile() {
             <thead>
               <tr className="bg-black/20">
                 <th className="text-left p-4 font-semibold text-white">Day of the week:</th>
-                <th className="text-left p-4 font-semibold text-black">Availability:</th>
+                <th className="text-left p-4 font-semibold text-white">Availability:</th>
               </tr>
             </thead>
             <tbody>
               {Object.keys(availability).map((day) => (
                 <tr key={day}>
                   <td className="p-4 text-white">{day}</td>
-                  <td className="p-4 text-black">
+                  <td className="p-4 text-white">
                     <select
                       className="bg-transparent border-b-2 border-white w-full"
                       value={availability[day]}
                       onChange={(e) => handleAvailabilityChange(day, e.target.value)}
                     >
-                      <option value="Available">Available</option>
-                      <option value="Not Available">Not Available</option>
+                      <option className="bg-black/20" value="Available">Available</option>
+                      <option className="bg-black/20" value="Not Available">Not Available</option>
                     </select>
                   </td>
                 </tr>
