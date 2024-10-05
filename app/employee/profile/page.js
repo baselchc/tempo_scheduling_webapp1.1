@@ -1,12 +1,13 @@
 "use client";
 
-import { useUser } from '@clerk/nextjs';
+import { useUser, useAuth } from '@clerk/nextjs';
 import { useState } from 'react';
 import NavBar from '../components/NavBar'; // Import the NavBar component
 import Image from 'next/image'; // Import Next.js Image
 import { useRouter } from 'next/navigation'; // Import useRouter for navigation
 
 export default function EmployeeProfile() {
+  const { signOut } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -107,7 +108,7 @@ export default function EmployeeProfile() {
       </div>
 
       {/* Main content space */}
-      <div className="flex-grow p-8 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">Profile Information</h1>
 
         {/* Profile Information Section */}
@@ -166,21 +167,21 @@ export default function EmployeeProfile() {
             <thead>
               <tr className="bg-black/20">
                 <th className="text-left p-4 font-semibold text-white">Day of the week:</th>
-                <th className="text-left p-4 font-semibold text-black">Availability:</th>
+                <th className="text-left p-4 font-semibold text-white">Availability:</th>
               </tr>
             </thead>
             <tbody>
               {Object.keys(availability).map((day) => (
                 <tr key={day}>
                   <td className="p-4 text-white">{day}</td>
-                  <td className="p-4 text-black">
+                  <td className="p-4 text-white">
                     <select
                       className="bg-transparent border-b-2 border-white w-full"
                       value={availability[day]}
                       onChange={(e) => handleAvailabilityChange(day, e.target.value)}
                     >
-                      <option value="Available">Available</option>
-                      <option value="Not Available">Not Available</option>
+                      <option className="bg-black/20" value="Available">Available</option>
+                      <option className="bg-black/20" value="Not Available">Not Available</option>
                     </select>
                   </td>
                 </tr>

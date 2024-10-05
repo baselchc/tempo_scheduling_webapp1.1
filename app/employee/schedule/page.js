@@ -158,7 +158,7 @@ export default function SchedulePage() {
         )}
       </div>
 
-      <div className="flex-grow p-20 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">
           Your Schedule
         </h1>

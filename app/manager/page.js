@@ -90,7 +90,7 @@ export default function EmployeePage() {
       {/* Main content space */}
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-left text-white mb-8">
-          Welcome to the Employee Dashboard
+          Welcome to the Manager Dashboard
         </h1>
         {/* User Information */}
         <div className="mt-6 text-center">
@@ -104,12 +104,8 @@ export default function EmployeePage() {
         )}
       </div>
 
-        {/* Calendar Component */}
-        <EmployeeCalendar />
         
       </div>
     </div>
   );
 }
- {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
-  add the blurred background and adjust they layout to match the same feel of the login page.*/}
