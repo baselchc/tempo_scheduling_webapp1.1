@@ -139,7 +139,7 @@ export default function EmployeeProfile() {
                 className="bg-transparent border-b-2 border-white w-full"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}z
               />
             </p>
             <p>
@@ -199,3 +199,6 @@ export default function EmployeeProfile() {
     </div>
   );
 }
+
+{/*Code enhanced by AI (ChatGPT 4o) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and  for the availability make is so for now it will be set to available and not abailable
+  also have a update it to save the availability and save profile*/}
