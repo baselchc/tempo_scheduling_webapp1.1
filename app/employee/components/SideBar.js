@@ -30,3 +30,4 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 export default Sidebar;
+//code enhanced with help of chatgpt4 and some youtube videos for knowing how to animate in tailwind css. Prompt was "give me a code to animate the top bar and also with buttons like my account my profile settings notifications use framer in it"
