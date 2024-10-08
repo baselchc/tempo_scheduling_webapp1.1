@@ -16,7 +16,10 @@ export default function Home() {
   }, [isLoaded, isSignedIn, router]);
 
   return (
-    <div className="relative min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)] text-black">
+      
+      // Styling for text: "The best scheduling platform on planet earth. - About Us, Our Partners, Go to tempo.com "    
+      <div className="relative min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)] text-black">
+      
       {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-lg"
@@ -88,7 +91,7 @@ export default function Home() {
             </a>
             <a
               className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-              href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
+              href="http://localhost:3000/"
               target="_blank"
               rel="noopener noreferrer"
             >
@@ -99,7 +102,7 @@ export default function Home() {
                 width={16}
                 height={16}
               />
-              Go to tempo.com →
+              Go to a new tab →
             </a>
           </footer>
         </main>
