@@ -199,3 +199,6 @@ export default function EmployeeProfile() {
     </div>
   );
 }
+
+{/*Code enhanced by AI (ChatGPT 4o) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and  for the availability make is so for now it will be set to available and not abailable
+  also have a update it to save the availability and save profile*/}
