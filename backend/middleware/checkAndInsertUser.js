@@ -11,18 +11,17 @@ const checkAndInsertUser = async (req, res, next) => {
     }
 
     // Query the database to check if the user exists
-    const { rows } = await db.query('SELECT * FROM users WHERE clerk_id = $1', [req.auth.userId]);
+    const { rows } = await db.query('SELECT * FROM users WHERE clerk_user_id = $1', [req.auth.userId]);
 
     if (rows.length === 0) {
       // If the user doesn't exist, inserts them into the database
       await db.query(
-        'INSERT INTO users (clerk_id, email, username) VALUES ($1, $2, $3)',
+        'INSERT INTO users (clerk_user_id, email, username) VALUES ($1, $2, $3)',
         [req.auth.userId, req.auth.email, req.auth.username]
       );
       console.log('New user inserted:', req.auth.userId);
     } else {
       console.log('User already exists:', req.auth.userId);
-      // TODO: Update user info here
     }
 
     next();
