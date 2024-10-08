@@ -23,6 +23,15 @@ pool.on('error', (err) => {
   process.exit(-1);
 });
 
+// Test the connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Error connecting to the database', err);
+  } else {
+    console.log('Database connected successfully. Server time:', res.rows[0].now);
+  }
+});
+
 module.exports = {
   query: (text, params) => pool.query(text, params),
   pool: pool,

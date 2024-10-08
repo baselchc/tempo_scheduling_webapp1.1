@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(255),
     first_name VARCHAR(255),
     last_name VARCHAR(255),
+    phone VARCHAR(20),
     role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -17,13 +18,14 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username') THEN
         ALTER TABLE users ADD COLUMN username VARCHAR(255);
     END IF;
-
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'first_name') THEN
         ALTER TABLE users ADD COLUMN first_name VARCHAR(255);
     END IF;
-
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_name') THEN
         ALTER TABLE users ADD COLUMN last_name VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone') THEN
+        ALTER TABLE users ADD COLUMN phone VARCHAR(20);
     END IF;
 END $$;
 
@@ -47,3 +49,14 @@ CREATE TABLE IF NOT EXISTS time_logs (
     clock_out TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Availability table
+CREATE TABLE IF NOT EXISTS availability (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    day_of_week VARCHAR(10) CHECK (day_of_week IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),
+    status VARCHAR(20) CHECK (status IN ('Available', 'Not Available')),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, day_of_week)
+);
+
