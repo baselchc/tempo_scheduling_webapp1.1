@@ -158,7 +158,7 @@ export default function SchedulePage() {
         )}
       </div>
 
-      <div className="flex-grow p-20 ml-0 md:ml-64 transition-all z-10">
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">
           Your Schedule
         </h1>
@@ -190,27 +190,27 @@ export default function SchedulePage() {
         </div>
 
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-          <table id="schedule-table" className="min-w-full bg-white shadow-md rounded-lg overflow-hidden">
-            <thead className="bg-blue-500 text-white">
+          <table id="schedule-table" className="min-w-full bg-transparent">
+          <thead className="bg-white bg-opacity-20 text-white">
             <tr>
               <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Date</th>
               <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Shift</th>
               <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Status</th>
             </tr>
+          </thead>
 
-            </thead>
             <tbody>
               {filteredSchedule.length > 0 ? (
                 filteredSchedule.map((item, index) => (
                   <tr key={index} className="border-b">
-                    <td className="px-6 py-4">{item.date}</td>
-                    <td className="px-6 py-4">{item.shift}</td>
-                    <td className="px-6 py-4">{item.status}</td>
+                    <td className="px-6 py-4 text-white">{item.date}</td>
+                    <td className="px-6 py-4 text-white">{item.shift}</td>
+                    <td className="px-6 py-4 text-white">{item.status}</td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="3" className="text-center py-4">
+                  <td colSpan="3" className="text-center py-4 text-white">
                     No shifts found for this date.
                   </td>
                 </tr>
@@ -218,7 +218,7 @@ export default function SchedulePage() {
             </tbody>
           </table>
 
-          <div className="mt-4 text-white p-10 rounded-lg border-2 border-blue-500 bg-blue-700/50">
+          <div className="mt-4 text-white p-10 rounded-lg border-2 border-white-500 bg-white/10">
             <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Hours Worked: {totalHoursWorked}</p>
             <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Total Scheduled Hours: {totalScheduledHours}</p>
             <p className="text-lg" style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Remaining Hours: {remainingHours}</p>
@@ -244,3 +244,4 @@ export default function SchedulePage() {
     </div>
   );
 }
+//code enhanced with help of chatgpt4 and prompt was Develop a Next.js schedule management page that includes user authentication, profile actions, notifications, and a feature to toggle between daily and weekly views. Ensure the component can export data in both CSV and PDF formats and incorporates dynamic interactions for an enhanced user experience."

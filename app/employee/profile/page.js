@@ -14,6 +14,16 @@ export default function EmployeeProfile() {
   const { getToken, signOut } = useAuth();
 
   // Local state variables to manage various component states and data
+import { useUser, useAuth } from '@clerk/nextjs';
+import { useState } from 'react';
+import NavBar from '../components/NavBar'; // Import the NavBar component
+import Image from 'next/image'; // Import Next.js Image
+import { useRouter } from 'next/navigation'; // Import useRouter for navigation
+
+export default function EmployeeProfile() {
+  const { signOut } = useAuth();
+  const { user } = useUser();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -200,16 +210,26 @@ export default function EmployeeProfile() {
             <tbody>
               {Object.entries(availability).map(([day, status]) => (
                 <tr key={day}>
+
                   <td className="p-4 text-white">{day}:</td>
                   <td className="p-4">
+
+                  <td className="p-4 text-white">{day}</td>
+                  <td className="p-4 text-white">
+
                     <select
                       className="w-full p-2 rounded-lg bg-black/50 text-white"
                       value={status}
                       onChange={(e) => handleAvailabilityChange(day, e.target.value)}
-                    >
+                    
+
                       <option value="Available">Available</option>
                       <option value="Not Available">Not Available</option>
                       <option value="Partially Available">Partially Available</option>
+
+                      <option className="bg-black/20" value="Available">Available</option>
+                      <option className="bg-black/20" value="Not Available">Not Available</option>
+
                     </select>
                   </td>
                 </tr>
@@ -224,3 +244,6 @@ export default function EmployeeProfile() {
     </div>
   );
 }
+
+{/*Code enhanced by AI (ChatGPT 4o) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and  for the availability make is so for now it will be set to available and not abailable
+  also have a update it to save the availability and save profile*/}

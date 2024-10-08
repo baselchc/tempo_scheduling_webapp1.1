@@ -37,7 +37,7 @@ const TopNavBar = () => {
               <div className="py-2 px-4 hover:bg-gray-600 cursor-pointer" onClick={handleSignOut}>
                 Sign Out
               </div>
-              
+              {/* Add more options here if needed */}
             </div>
           )}
         </div>
