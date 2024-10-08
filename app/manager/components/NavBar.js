@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Home, Schedule, Work, AccountCircle } from '@mui/icons-material'; // Import Material UI icons
+import { Home, Schedule, Work, AccountCircle, AddCircle, List, Check} from '@mui/icons-material'; // Import Material UI icons
 import { useUser } from '@clerk/nextjs';
 
 const NavBar = ({ menuOpen, toggleMenu }) => {
@@ -8,9 +8,17 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
 
   const navItems = [
     { name: "Home", href: "/", icon: <Home /> },
-    { name: "Schedule", href: "/employee/schedule", icon: <Schedule /> },
-    { name: "Open Shifts", href: "/employee/openshifts", icon: <Work /> },
-    { name: "Profile", href: "/employee/profile", icon: <AccountCircle /> },
+    { name: "Schedule", href: "/manager/schedule", icon: <Schedule /> },
+    { name: "Open Shifts", href: "/manager/openshifts", icon: <Work /> },
+    { name: "Profile", href: "/manager/profile", icon: <AccountCircle /> },
+    
+
+  ];
+
+  const managerNavItems = [
+    { name: "Create Schedule", href: "/manager/createschedule", icon: <AddCircle /> },
+    { name: "Employee List", href: "/manager/employeelist", icon: <List /> },
+    { name: "Approve Shifts", href: "/manager/approveshifts", icon: <Check /> },
   ];
 
   return (
@@ -33,6 +41,19 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
         {/* Navigation Links */}
         <ul className="space-y-4">
           {navItems.map((item, index) => (
+            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
+              <a href={item.href} className="flex items-center gap-2">
+                {item.icon}
+                {menuOpen && <span>{item.name}</span>} {/* Show name only if menu is open */}
+              </a>
+            </li>
+          ))}
+
+          <li className="flex items-center justify-center">
+            <hr className="border border-gray-600 my-2 w-full" />
+          </li>
+
+          {managerNavItems.map((item, index) => (
             <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
               <a href={item.href} className="flex items-center gap-2">
                 {item.icon}
