@@ -14,16 +14,6 @@ export default function EmployeeProfile() {
   const { getToken, signOut } = useAuth();
 
   // Local state variables to manage various component states and data
-import { useUser, useAuth } from '@clerk/nextjs';
-import { useState } from 'react';
-import NavBar from '../components/NavBar'; // Import the NavBar component
-import Image from 'next/image'; // Import Next.js Image
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
-
-export default function EmployeeProfile() {
-  const { signOut } = useAuth();
-  const { user } = useUser();
-
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -214,14 +204,13 @@ export default function EmployeeProfile() {
                   <td className="p-4 text-white">{day}:</td>
                   <td className="p-4">
 
-                  <td className="p-4 text-white">{day}</td>
-                  <td className="p-4 text-white">
+
 
                     <select
                       className="w-full p-2 rounded-lg bg-black/50 text-white"
                       value={status}
                       onChange={(e) => handleAvailabilityChange(day, e.target.value)}
-                    
+                    >
 
                       <option value="Available">Available</option>
                       <option value="Not Available">Not Available</option>
