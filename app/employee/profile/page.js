@@ -8,6 +8,9 @@ import { useRouter } from 'next/navigation';
 // Define the API URL for making backend requests
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
+// Maximum file size for profile image (in bytes)
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 export default function EmployeeProfile() {
   // Clerk hooks to get the current user and authentication information
   const { user, isLoaded } = useUser();
@@ -26,6 +29,10 @@ export default function EmployeeProfile() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
+
+  // New state for profile image
+  const [profileImage, setProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState(null);
 
   // Default availability state
   const [availability, setAvailability] = useState({
@@ -61,6 +68,7 @@ export default function EmployeeProfile() {
       setPhone(data.phone || '');
       setUsername(data.username || '');
       setAvailability(data.availability || {});
+      setProfileImagePreview(data.profileImageUrl || null);
       setIsLoading(false);
     } catch (err) {
       setError(`Failed to load profile: ${err.message}`);
@@ -85,25 +93,46 @@ export default function EmployeeProfile() {
     setAvailability(prev => ({ ...prev, [day]: value }));
   };
 
-  // Function to submit the updated profile information and availability to the backend
+  // Handler for profile image change
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > MAX_FILE_SIZE) {
+        setError("File size exceeds 5MB limit");
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        setError("File must be an image");
+        return;
+      }
+      setProfileImage(file);
+      setProfileImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Function to submit the updated profile information, availability, and image to the backend
   const handleProfileSubmit = async () => {
     try {
       setIsLoading(true);
       const token = await getToken();
+      
+      const formData = new FormData();
+      formData.append('firstName', firstName);
+      formData.append('lastName', lastName);
+      formData.append('email', email);
+      formData.append('phone', phone);
+      formData.append('username', username);
+      formData.append('availability', JSON.stringify(availability));
+      if (profileImage) {
+        formData.append('profileImage', profileImage);
+      }
+
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          firstName, 
-          lastName, 
-          email, 
-          phone, 
-          username, 
-          availability 
-        }),
+        body: formData
       });
 
       if (!response.ok) {
@@ -112,6 +141,8 @@ export default function EmployeeProfile() {
       }
       
       setIsLoading(false);
+      // Optionally, show a success message or refresh the profile data
+      fetchUserProfile();
     } catch (err) {
       setError(`Failed to update profile: ${err.message}`);
       setIsLoading(false);
@@ -135,7 +166,7 @@ export default function EmployeeProfile() {
 
         {/* User Profile Dropdown */}
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
-          <Image className="rounded-full" src={user?.profileImageUrl || '/images/default-avatar.png'} alt="Profile image" width={40} height={40} />
+          <Image className="rounded-full" src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} alt="Profile image" width={40} height={40} />
           <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
         </button>
         {profileMenuOpen && (
@@ -160,6 +191,31 @@ export default function EmployeeProfile() {
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
           <div className="text-white space-y-4">
+            {/* Profile Image Upload */}
+            <div className="mb-4">
+              <label className="block mb-2">Profile Image:</label>
+              <div className="flex items-center space-x-4">
+                <Image 
+                  src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} 
+                  alt="Profile Preview" 
+                  width={100} 
+                  height={100} 
+                  className="rounded-full"
+                />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleProfileImageChange}
+                  className="text-sm text-grey-500
+                    file:mr-5 file:py-2 file:px-6
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:cursor-pointer hover:file:bg-amber-50
+                    hover:file:text-amber-700"
+                />
+              </div>
+            </div>
             {/* Editable profile fields */}
             <div>
               <label className="block mb-1">First Name:</label>
@@ -200,22 +256,17 @@ export default function EmployeeProfile() {
             <tbody>
               {Object.entries(availability).map(([day, status]) => (
                 <tr key={day}>
-
                   <td className="p-4 text-white">{day}:</td>
                   <td className="p-4">
-
-
-
                     <select
                       className="w-full p-2 rounded-lg bg-black/50 text-white"
                       value={status}
                       onChange={(e) => handleAvailabilityChange(day, e.target.value)}
                     >
-
                       <option value="Available">Available</option>
                       <option value="Not Available">Not Available</option>
                       <option value="Partially Available">Partially Available</option>
-
+                      
                       <option className="bg-black/20" value="Available">Available</option>
                       <option className="bg-black/20" value="Not Available">Not Available</option>
 
@@ -234,5 +285,4 @@ export default function EmployeeProfile() {
   );
 }
 
-{/*Code enhanced by AI (ChatGPT 4o) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and  for the availability make is so for now it will be set to available and not abailable
-  also have a update it to save the availability and save profile*/}
+// Code enhanced by AI (ChatGPT 4) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and for the availability make it so for now it will be set to available and not available
