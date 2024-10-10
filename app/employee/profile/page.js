@@ -212,7 +212,7 @@ export default function EmployeeProfile() {
                     file:text-sm file:font-medium
                     file:bg-blue-50 file:text-black-700
                     hover:file:cursor-pointer hover:file:bg-amber-50
-                    hover:file:text-amber-700"
+                    hover:file:text-blue-700"
                 />
               </div>
             </div>
