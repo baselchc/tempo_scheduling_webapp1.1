@@ -64,8 +64,11 @@ CREATE TABLE IF NOT EXISTS public.schedules
 (
     id SERIAL PRIMARY KEY,
     manager_id INTEGER NOT NULL,
-    week_period DATE NOT NULL,
-    shift_start TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    shift_end TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    employee_name VARCHAR(255) NOT NULL,
+    week_period DATE,
+    shift_start TIMESTAMP NOT NULL,
+    shift_end TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+

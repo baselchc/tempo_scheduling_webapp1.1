@@ -1,29 +1,40 @@
-"use client";  // Required for Next.js 13+
-
-import React, { useState } from 'react';
+"use client";
+import { useState } from 'react';
 import axios from 'axios';
 
+const apiUrl = 'http://localhost:5000'; // Backend URL
+
 export default function CreateSchedulePage() {
+  const [managerId, setManagerId] = useState('');
+  const [employeeName, setEmployeeName] = useState('');
   const [weekPeriod, setWeekPeriod] = useState('');
   const [shiftStart, setShiftStart] = useState('');
   const [shiftEnd, setShiftEnd] = useState('');
-  const [message, setMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
+
+  // Function to format the datetime-local value to the PostgreSQL TIMESTAMP format
+  const formatDateTime = (datetime) => {
+    const date = new Date(datetime);
+    return date.toISOString().slice(0, 19).replace('T', ' ');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const scheduleData = {
-      manager_id: 1,  // Hardcoded manager_id, replace with dynamic value as needed
+      manager_id: managerId,
+      employee_name: employeeName,
       week_period: weekPeriod,
-      shift_start: shiftStart,
-      shift_end: shiftEnd,
+      shift_start: formatDateTime(shiftStart),  // Format shift_start
+      shift_end: formatDateTime(shiftEnd),      // Format shift_end
     };
 
     try {
-      const response = await axios.post('http://localhost:5000/api/schedule/create-schedule', scheduleData);
-      setMessage('Schedule created successfully!');
+      const response = await axios.post(`${apiUrl}/api/schedule/create-schedule`, scheduleData);
+      if (response.status === 200) {
+        setStatusMessage('Schedule created successfully!');
+      }
     } catch (error) {
-      setMessage('Failed to create schedule');
-      console.error('Error:', error);
+      setStatusMessage('Failed to create schedule');
     }
   };
 
@@ -31,36 +42,44 @@ export default function CreateSchedulePage() {
     <div>
       <h1>Create Schedule</h1>
       <form onSubmit={handleSubmit}>
-        <div>
-          <label>Week Period:</label>
-          <input
-            type="date"
-            value={weekPeriod}
-            onChange={(e) => setWeekPeriod(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label>Shift Start:</label>
-          <input
-            type="datetime-local"
-            value={shiftStart}
-            onChange={(e) => setShiftStart(e.target.value)}
-            required
-          />
-        </div>
-        <div>
-          <label>Shift End:</label>
-          <input
-            type="datetime-local"
-            value={shiftEnd}
-            onChange={(e) => setShiftEnd(e.target.value)}
-            required
-          />
-        </div>
+        <input
+          type="text"
+          placeholder="Manager ID"
+          value={managerId}
+          onChange={(e) => setManagerId(e.target.value)}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Employee Name"
+          value={employeeName}
+          onChange={(e) => setEmployeeName(e.target.value)}
+          required
+        />
+        <input
+          type="date"
+          placeholder="Week Period"
+          value={weekPeriod}
+          onChange={(e) => setWeekPeriod(e.target.value)}
+          required
+        />
+        <input
+          type="datetime-local"
+          placeholder="Shift Start"
+          value={shiftStart}
+          onChange={(e) => setShiftStart(e.target.value)}
+          required
+        />
+        <input
+          type="datetime-local"
+          placeholder="Shift End"
+          value={shiftEnd}
+          onChange={(e) => setShiftEnd(e.target.value)}
+          required
+        />
         <button type="submit">Create Schedule</button>
       </form>
-      {message && <p>{message}</p>}
+      <p>{statusMessage}</p>
     </div>
   );
 }
