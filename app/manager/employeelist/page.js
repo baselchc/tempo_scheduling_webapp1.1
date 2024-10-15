@@ -1,150 +1,122 @@
-"use client";
-import { useState, useEffect } from 'react';
-import axios from 'axios';
+"use client"; // Mark this component as a Client Component
 
-const apiUrl = 'http://localhost:5000'; // Backend URL
+import { useUser, useAuth } from '@clerk/nextjs'; // Importing user authentication hooks
+import { useState } from 'react'; // Importing useState for state management
+import NavBar from '../components/NavBar'; // Importing the NavBar component
+import Image from 'next/image'; // Importing Next.js Image component
 
-export default function EmployeeManagementPage() {
-  // State for managing employee data and form inputs
-  const [employees, setEmployees] = useState([]);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('employee');
-  const [statusMessage, setStatusMessage] = useState('');
+export default function EmployeeListPage() {
+    const { user } = useUser(); // Get user information
+    const { signOut } = useAuth(); // For signing out
+    const [menuOpen, setMenuOpen] = useState(false); // State for side menu
+    const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+    const [openEmployee, setOpenEmployee] = useState(null);
 
-  // Fetch employee list on component mount
-  useEffect(() => {
-    fetchEmployees();
-  }, []);
-
-  // Fetch employees from the backend
-  const fetchEmployees = async () => {
-    try {
-      const response = await axios.get(`${apiUrl}/api/employees/get-employees`);
-      setEmployees(response.data);
-    } catch (error) {
-      console.error('Failed to fetch employees:', error);
-    }
-  };
-
-  // Handle form submission for adding a new employee
-  const handleAddEmployee = async (e) => {
-    e.preventDefault();
-    const employeeData = {
-      first_name: firstName,
-      last_name: lastName,
-      email: email,
-      phone: phone,
-      role: role,
+    const toggleMenu = () => {
+    setMenuOpen(!menuOpen); // Toggle sidebar
     };
 
-    try {
-      const response = await axios.post(`${apiUrl}/api/employees/add-employee`, employeeData);
-      if (response.status === 200) {
-        setStatusMessage('Employee added successfully!');
-        fetchEmployees(); // Refresh the employee list after adding a new employee
-        // Reset form fields
-        setFirstName('');
-        setLastName('');
-        setEmail('');
-        setPhone('');
-        setRole('employee');
-      }
-    } catch (error) {
-      setStatusMessage('Failed to add employee');
-    }
-  };
+    const toggleNotifications = () => {
+    setNotificationsOpen(!notificationsOpen);
+    };
 
-  return (
-    <div className="container mx-auto mt-10">
-      <h1 className="text-4xl font-bold mb-10 text-center">Employee Management</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-        {/* Add Employee Form */}
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-4 text-center">Add New Employee</h2>
-          <form onSubmit={handleAddEmployee} className="space-y-4">
-            <label className="block">
-              <span className="text-gray-700">First Name</span>
-              <input
-                className="block w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-gray-700">Last Name</span>
-              <input
-                className="block w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-gray-700">Email</span>
-              <input
-                className="block w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-gray-700">Phone</span>
-              <input
-                className="block w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                type="text"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-gray-700">Role</span>
-              <select
-                className="block w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                required
-              >
-                <option value="employee">Employee</option>
-                <option value="manager">Manager</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
-            <button className="w-full bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600" type="submit">
-              Add Employee
+    const toggleProfileMenu = () => {
+    setProfileMenuOpen(!profileMenuOpen);
+    };
+
+    const toggleEmployee = (id) => {
+    setOpenEmployee(openEmployee === id ? null : id); // Toggle employee dropdown
+    };
+
+    const employees = [
+    { firstName: "Darrel", lastName: "Nguyen", email:"darrel@gmail.com", phone:"000-000-0000 ", availability: "Available"}
+    ];
+
+    return (
+        <div className="relative min-h-screen text-black">
+         {/* Blurred background image */}
+         <div
+            className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
+            style={{
+                backgroundImage: `url('/images/loginpagebackground.webp')`,
+            }}
+        ></div>
+
+        {/* Navigation Bar */}
+        <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
+
+        {/* Main content space */}
+        <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
+        <h1 className="text-4xl font-bold text-center text-white mb-8">Employee List</h1>
+
+        {/* Top Right: User Info & Notifications */}
+        <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
+
+            {/* Notifications Bell */}
+            <button onClick={toggleNotifications} className="relative">
+                {notificationsOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
+                    <p>No new notifications.</p>
+                </div>
+                )}
             </button>
-          </form>
-          <p className="mt-4 text-lg text-center text-green-600">{statusMessage}</p>
+
+            {/* User Profile Dropdown */}
+            <button onClick={toggleProfileMenu} className="flex items-center gap-2">
+                <Image
+                    className="rounded-full"
+                    src={user?.profileImageUrl || '/images/default-avatar.png'}
+                    alt="Profile image"
+                    width={40}
+                    height={40}
+                />
+                <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
+            </button>
+            {profileMenuOpen && (
+            <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
+                <ul>
+                    <li className="p-2 hover:bg-gray-100 cursor-pointer" onClick={() => router.push('/employee/profile')}>
+                        Edit Profile
+                    </li>
+                    <li className="p-2 hover:bg-gray-100 cursor-pointer" onClick={() => signOut()}>
+                        Log Out
+                    </li>
+                </ul>
+            </div>
+            )}
         </div>
 
-        {/* Employee List */}
-        <div className="bg-white shadow-lg rounded-lg p-6">
-          <h2 className="text-2xl font-bold mb-4 text-center">Employee List</h2>
-          {employees.length > 0 ? (
-            <ul className="space-y-4">
-              {employees.map((employee) => (
-                <li key={employee.id} className="border p-4 rounded-lg bg-gray-50">
-                  <p><strong>Name:</strong> {employee.first_name} {employee.last_name}</p>
-                  <p><strong>Email:</strong> {employee.email}</p>
-                  <p><strong>Phone:</strong> {employee.phone}</p>
-                  <p><strong>Role:</strong> {employee.role}</p>
+        {/* Employee */}
+        <ul className="space-y-4">
+            {employees.map((employee) => (
+                <li key={employee.id} className="border p-4 rounded-lg bg-black/20 backdrop-blur-lg">
+                <div
+                    className="flex justify-between items-center cursor-pointer text-white"
+                    onClick={() => toggleEmployee(employee.id)} // Toggle dropdown on click
+                >
+                    <span className="font-semibold">{employee.firstName} {employee.lastName}</span>
+                    <span className="text-gray-600">{openEmployee === employee.id ? '-' : '+'}</span> {/* Dropdown icon */}
+                </div>
+
+                {/* Dropdown content */}
+                {openEmployee === employee.id && (
+                <div className="mt-2 p-2 border-t border-gray-300 text-white">
+                    <p><strong>First Name:</strong> {employee.firstName}</p>
+                    <p><strong>Last Name:</strong> {employee.lastName}</p>
+                    <p><strong>Email:</strong> {employee.email}</p>
+                    <p><strong>Phone:</strong> {employee.phone}</p>
+                    <p><strong>Availability:</strong> {employee.availability}</p>
+                </div>
+                )}
                 </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-500 text-center">No employees found</p>
-          )}
+            ))}
+        </ul>
+
+
         </div>
-      </div>
-    </div>
-  );
+        </div>
+
+
+    );
 }
