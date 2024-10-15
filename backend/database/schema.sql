@@ -36,14 +36,7 @@ END $$;
 -- Make email optional
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
--- Schedules table
-CREATE TABLE IF NOT EXISTS schedules (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id),
-    shift_start TIMESTAMP NOT NULL,
-    shift_end TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+
 
 -- Time logs table
 CREATE TABLE IF NOT EXISTS time_logs (
@@ -64,6 +57,25 @@ CREATE TABLE IF NOT EXISTS availability (
     UNIQUE(user_id, day_of_week)
 );
 
+
+CREATE TABLE IF NOT EXISTS employee_list (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    role VARCHAR(50)
+);
+
+CREATE TABLE IF NOT EXISTS schedules (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER REFERENCES employee_list(id),
+    week_period DATE,
+    shift_start TIMESTAMP,
+    shift_end TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS public.schedules
 (
     id SERIAL PRIMARY KEY,
@@ -74,5 +86,6 @@ CREATE TABLE IF NOT EXISTS public.schedules
     shift_end TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
 
 
