@@ -30,12 +30,12 @@ export default function EmployeePage() {
   };
 
   return (
-    <div className="relative min-h-screen text-black">
+    <div className="relative min-h-screen text-black bg-white">
       {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
         style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
+          backgroundImage: `url('/images/loginpagebackground.png')`,
         }}
       ></div>
 
