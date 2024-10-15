@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
     last_name VARCHAR(255),
     phone VARCHAR(20),
     role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
+    profile_image BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -17,6 +18,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'username') THEN
         ALTER TABLE users ADD COLUMN username VARCHAR(255);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'profile_image') THEN
+        ALTER TABLE users ADD COLUMN profile_image BYTEA;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'first_name') THEN
         ALTER TABLE users ADD COLUMN first_name VARCHAR(255);
