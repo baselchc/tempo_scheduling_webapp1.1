@@ -5,49 +5,32 @@ import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
-// Define the API URL for making backend requests
 const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-
-// Maximum file size for profile image (in bytes)
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function EmployeeProfile() {
-  // Clerk hooks to get the current user and authentication information
   const { user, isLoaded } = useUser();
   const { getToken, signOut } = useAuth();
 
-  // Local state variables to manage various component states and data
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Editable fields for profile information
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
 
-  // New state for profile image
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState(null);
 
-  // Default availability state
-  const [availability, setAvailability] = useState({
-    Monday: 'Available',
-    Tuesday: 'Available',
-    Wednesday: 'Available',
-    Thursday: 'Available',
-    Friday: 'Available',
-    Saturday: 'Not Available',
-    Sunday: 'Not Available',
-  });
+  // const [availability, setAvailability] = useState({});
 
   const router = useRouter();
 
-  // Function to fetch and populate user profile data when component loads
   const fetchUserProfile = useCallback(async () => {
     try {
       const token = await getToken();
@@ -67,7 +50,7 @@ export default function EmployeeProfile() {
       setEmail(data.email || '');
       setPhone(data.phone || '');
       setUsername(data.username || '');
-      setAvailability(data.availability || {});
+      // setAvailability(data.availability || {});
       setProfileImagePreview(data.profileImageUrl || null);
       setIsLoading(false);
     } catch (err) {
@@ -76,24 +59,16 @@ export default function EmployeeProfile() {
     }
   }, [getToken]);
 
-  // Fetch user profile once authentication state and user data are loaded
   useEffect(() => {
     if (isLoaded && getToken) {
       fetchUserProfile();
     }
   }, [isLoaded, getToken, fetchUserProfile]);
 
-  // Toggle functions for various UI states
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
-  // Handler to update local availability state for a specific day
-  const handleAvailabilityChange = (day, value) => {
-    setAvailability(prev => ({ ...prev, [day]: value }));
-  };
-
-  // Handler for profile image change
   const handleProfileImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -110,10 +85,10 @@ export default function EmployeeProfile() {
     }
   };
 
-  // Function to submit the updated profile information, availability, and image to the backend
   const handleProfileSubmit = async () => {
     try {
       setIsLoading(true);
+      setError(null);
       const token = await getToken();
       
       const formData = new FormData();
@@ -122,7 +97,7 @@ export default function EmployeeProfile() {
       formData.append('email', email);
       formData.append('phone', phone);
       formData.append('username', username);
-      formData.append('availability', JSON.stringify(availability));
+      // formData.append('availability', JSON.stringify(availability));
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
@@ -135,36 +110,32 @@ export default function EmployeeProfile() {
         body: formData
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const rawResponse = await response.text();
-        throw new Error(`Failed to update profile: ${response.status} ${rawResponse}`);
+        throw new Error(data.error || 'Failed to update profile');
       }
       
       setIsLoading(false);
-      // Optionally, show a success message or refresh the profile data
+      alert('Profile updated successfully');
       fetchUserProfile();
     } catch (err) {
-      setError(`Failed to update profile: ${err.message}`);
+      setError(err.message);
       setIsLoading(false);
     }
   };
 
   if (isLoading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
-  if (error) return <div className="flex justify-center items-center h-screen text-red-500">Error: {error}</div>;
 
   return (
     <div className="relative min-h-screen text-black">
-      {/* Blurred background image */}
       <div className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl" style={{ backgroundImage: `url('/images/loginpagebackground.webp')` }}></div>
 
-      {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-      {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
         <button onClick={toggleNotifications} className="relative"></button>
 
-        {/* User Profile Dropdown */}
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image className="rounded-full" src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} alt="Profile image" width={40} height={40} />
           <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
@@ -183,15 +154,18 @@ export default function EmployeeProfile() {
         )}
       </div>
 
-      {/* Main content space */}
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">Profile Information</h1>
 
-        {/* Profile Information Section */}
+        {error && (
+          <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            Error: {error}
+          </div>
+        )}
+
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
           <div className="text-white space-y-4">
-            {/* Profile Image Upload */}
             <div className="mb-4">
               <label className="block mb-2">Profile Image:</label>
               <div className="flex items-center space-x-4">
@@ -216,7 +190,6 @@ export default function EmployeeProfile() {
                 />
               </div>
             </div>
-            {/* Editable profile fields */}
             <div>
               <label className="block mb-1">First Name:</label>
               <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
@@ -237,52 +210,19 @@ export default function EmployeeProfile() {
               <label className="block mb-1">Username:</label>
               <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
-            <button className="mt-4 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition duration-300 ease-in-out" onClick={handleProfileSubmit} disabled={isLoading}>
-              {isLoading ? 'Saving...' : 'Save Profile'}
-            </button>
           </div>
         </div>
-
-        {/* Availability Section */}
-        <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-          <h2 className="text-2xl font-semibold mb-4 text-white">Availability</h2>
-          <table className="min-w-full bg-transparent">
-            <thead>
-              <tr className="bg-black/20">
-                <th className="text-left p-4 font-semibold text-white">Day of the week:</th>
-                <th className="text-left p-4 font-semibold text-white">Availability:</th>
-              </tr>
-            </thead>
-            <tbody>
-              {Object.entries(availability).map(([day, status]) => (
-                <tr key={day}>
-                  <td className="p-4 text-white">{day}:</td>
-                  <td className="p-4">
-                    <select
-                      className="w-full p-2 rounded-lg bg-black/50 text-white"
-                      value={status}
-                      onChange={(e) => handleAvailabilityChange(day, e.target.value)}
-                    >
-                      <option value="Available">Available</option>
-                      <option value="Not Available">Not Available</option>
-                      <option value="Partially Available">Partially Available</option>
-                      
-                      <option className="bg-black/20" value="Available">Available</option>
-                      <option className="bg-black/20" value="Not Available">Not Available</option>
-
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <button className="mt-4 bg-blue-500 hover:bg-blue-600 text-white p-2 rounded-lg transition duration-300 ease-in-out" onClick={handleProfileSubmit} disabled={isLoading}>
-            {isLoading ? 'Saving...' : 'Save Availability'}
+        
+        <div className="mt-8 text-center">
+          <button 
+            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg transition duration-300 ease-in-out text-lg font-semibold" 
+            onClick={handleProfileSubmit} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
       </div>
     </div>
   );
 }
-
-// Code enhanced by AI (ChatGPT 4) Prompts were: Fix the personal information and availability so that it will have place holders for information for the useUser import and for the availability make it so for now it will be set to available and not available

@@ -2,14 +2,17 @@
 const express = require('express');
 const next = require('next');
 const path = require('path');
-const cors = require('cors');
+const cors = require('cors');  // Import CORS
+
 const bodyParser = require('body-parser');
 
 // Import route handlers and database configuration.
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+
 const employeeRoutes = require('./routes/employeeRoutes'); // Employee routes
+
 const { pool } = require('./database/db');
 
 // Load environment variables
@@ -23,6 +26,9 @@ const handle = nextApp.getRequestHandler();
 const app = express();
 
 // Enable CORS for frontend
+
+// Enable CORS for requests coming from the frontend on port 3000
+
 const corsOptions = {
   origin: 'http://localhost:3000',
   optionsSuccessStatus: 200
@@ -31,7 +37,11 @@ app.use(cors(corsOptions));
 
 // Async function to set up the server
 const setupServer = async () => {
+
   await nextApp.prepare();
+
+  await nextApp.prepare(); // Prepare Next.js for handling requests
+
   console.log('Next.js app prepared');
 
   // Test database connection
@@ -42,15 +52,22 @@ const setupServer = async () => {
     console.error('Error connecting to the database:', err);
   }
 
+
   // Setup routes
   app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
   app.use('/api/users', bodyParser.json(), userRoutes);
   app.use('/api/schedule', bodyParser.json(), scheduleRoutes);
   app.use('/api/employees', bodyParser.json(), employeeRoutes); // Employee routes
 
+  // Setup routes for the Express server.
+  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
+  app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
+  app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
+
+
   // Handle all other routes using Next.js's request handler.
   app.all('*', (req, res) => {
-    return handle(req, res);
+    return handle(req, res); // For all other requests, use Next.js to handle routing
   });
 
   return app;
