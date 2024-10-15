@@ -64,3 +64,15 @@ CREATE TABLE IF NOT EXISTS availability (
     UNIQUE(user_id, day_of_week)
 );
 
+CREATE TABLE IF NOT EXISTS public.schedules
+(
+    id SERIAL PRIMARY KEY,
+    manager_id INTEGER NOT NULL,
+    employee_name VARCHAR(255) NOT NULL,
+    week_period DATE,
+    shift_start TIMESTAMP NOT NULL,
+    shift_end TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
