@@ -168,3 +168,4 @@ export default function CreateSchedulePage() {
     </div>
   );
 }
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: "Generate a React component that allows creating a work schedule. It should include input for Manager ID, an employee dropdown from an API, date selection for the week, and time pickers for shift start and end. Use Tailwind CSS for styling with a blurred background and integrate a submit button to send the form data to a backend API."*/}

@@ -120,3 +120,4 @@ export default function EmployeeListPage() {
 
     );
 }
+{/*Code enhanced by AI (ChatGPT 4o) Prompts were: \Create a React component for an employee list that includes a navigation bar and a user profile dropdown with a logout option. Each employee should have a dropdown to show or hide details like email and availability, and use Tailwind CSS for layout and styling with a blurred background.*/}
