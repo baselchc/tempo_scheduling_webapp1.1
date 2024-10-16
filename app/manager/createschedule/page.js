@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 "use client";
 import { useState, useEffect } from "react";
 import DatePicker from "react-datepicker";
@@ -30,6 +31,18 @@ export default function CreateSchedulePage() {
       console.error("Failed to fetch employees:", error);
     }
   };
+=======
+"use client";  // Required for Next.js 13+
+
+import React, { useState } from 'react';
+import axios from 'axios';
+
+export default function CreateSchedulePage() {
+  const [weekPeriod, setWeekPeriod] = useState('');
+  const [shiftStart, setShiftStart] = useState('');
+  const [shiftEnd, setShiftEnd] = useState('');
+  const [message, setMessage] = useState('');
+>>>>>>> parent of a6f751b (working input create schedule)
 
   // Combine date and time into a proper timestamp
   const combineDateTime = (date, time) => {
@@ -51,6 +64,7 @@ export default function CreateSchedulePage() {
     const shiftStartTimestamp = combineDateTime(weekPeriod, shiftStart);
     const shiftEndTimestamp = combineDateTime(weekPeriod, shiftEnd);
     const scheduleData = {
+<<<<<<< HEAD
       manager_id: parseInt(managerId), // Convert Manager ID to integer
       employee_id: selectedEmployeeId,
       week_period: weekPeriod,
@@ -65,10 +79,25 @@ export default function CreateSchedulePage() {
       }
     } catch (error) {
       setStatusMessage("Failed to create schedule");
+=======
+      manager_id: 1,  // Hardcoded manager_id, replace with dynamic value as needed
+      week_period: weekPeriod,
+      shift_start: shiftStart,
+      shift_end: shiftEnd,
+    };
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/schedule/create-schedule', scheduleData);
+      setMessage('Schedule created successfully!');
+    } catch (error) {
+      setMessage('Failed to create schedule');
+      console.error('Error:', error);
+>>>>>>> parent of a6f751b (working input create schedule)
     }
   };
 
   return (
+<<<<<<< HEAD
     <div className="relative min-h-screen text-black">
       {/* Blurred background image */}
       <div
@@ -152,6 +181,41 @@ export default function CreateSchedulePage() {
         </form>
         <p className="mt-4 text-lg text-white">{statusMessage}</p>
       </div>
+=======
+    <div>
+      <h1>Create Schedule</h1>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Week Period:</label>
+          <input
+            type="date"
+            value={weekPeriod}
+            onChange={(e) => setWeekPeriod(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Shift Start:</label>
+          <input
+            type="datetime-local"
+            value={shiftStart}
+            onChange={(e) => setShiftStart(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Shift End:</label>
+          <input
+            type="datetime-local"
+            value={shiftEnd}
+            onChange={(e) => setShiftEnd(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit">Create Schedule</button>
+      </form>
+      {message && <p>{message}</p>}
+>>>>>>> parent of a6f751b (working input create schedule)
     </div>
   );
 }

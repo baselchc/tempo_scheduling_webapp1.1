@@ -138,7 +138,7 @@ const takeShift = (shiftId) => {
           <h2 className="text-2xl font-semibold mb-4 text-white">Available Shifts</h2>
           <table className="min-w-full bg-transparent">
             <thead>
-              <tr className="bg-white/20">
+              <tr className="bg-white bg-opacity-20 text-white">
                 <th className="text-left p-4 font-semibold text-white">Day</th>
                 <th className="text-left p-4 font-semibold text-white">Time</th>
                 <th className="text-left p-4 font-semibold text-white">Reason</th>

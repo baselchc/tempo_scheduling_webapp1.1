@@ -22,7 +22,11 @@ const TopNavBar = () => {
       <div className="flex space-x-4">
         {/* Announcement Bell Icon */}
         <FontAwesomeIcon icon={faBell} className="cursor-pointer hover:text-gray-400" title="Announcements" />
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> parent of a6f751b (working input create schedule)
         {/* Profile Logo Icon */}
         <div className="relative">
           <FontAwesomeIcon
@@ -46,4 +50,8 @@ const TopNavBar = () => {
   );
 };
 
+<<<<<<< HEAD
 export default TopNavBar;
+=======
+export default TopNavBar;
+>>>>>>> parent of a6f751b (working input create schedule)

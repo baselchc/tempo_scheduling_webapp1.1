@@ -30,4 +30,4 @@ const Sidebar = ({ isOpen, onClose }) => {
 };
 
 export default Sidebar;
-//code enhanced with help of chatgpt4 and some youtube videos for knowing how to animate in tailwind css. Prompt was "Design a React component called Sidebar which will contain Framer Motion for animation and the styles will be added with Tailwind CSS. Optional elements Open/Close sidebar: The sidebar should slide in from the right hand side of the page with the button to open the sidebar, and slide out with the close button." 
+//code enhanced with help of chatgpt4 and some youtube videos for knowing how to animate in tailwind css. Prompt was "give me a code to animate the top bar and also with buttons like my account my profile settings notifications use framer in it"
