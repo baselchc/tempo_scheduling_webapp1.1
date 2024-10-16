@@ -51,7 +51,10 @@ export default function EmployeeProfile() {
       setPhone(data.phone || '');
       setUsername(data.username || '');
       // setAvailability(data.availability || {});
-      setProfileImagePreview(data.profileImageUrl || null);
+      if (data.profileImageUrl) {
+        setProfileImagePreview(data.profileImageUrl);
+      }
+      
       setIsLoading(false);
     } catch (err) {
       setError(`Failed to load profile: ${err.message}`);
