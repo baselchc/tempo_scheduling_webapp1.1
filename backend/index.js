@@ -1,47 +1,49 @@
 const express = require('express');
 const next = require('next');
 const path = require('path');
+const cors = require('cors');  // Import CORS
 const bodyParser = require('body-parser');
 
 // Import route handlers and database configuration.
-const userRoutes = require('./routes/userRoutes'); // Routes for user-related API calls
-const clerkWebhooks = require('./routes/clerkWebhooks'); // Routes for Clerk webhooks
-const scheduleRoutes = require('./routes/scheduleRoutes'); // Import schedule routes
-const { pool } = require('./database/db'); // Import the PostgreSQL database connection pool
+const userRoutes = require('./routes/userRoutes');
+const clerkWebhooks = require('./routes/clerkWebhooks');
+const scheduleRoutes = require('./routes/scheduleRoutes');
+const { pool } = require('./database/db');
 
 // Load environment variables from the .env file located in the parent directory.
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set'); // Log whether the Clerk Webhook Secret is correctly set
+console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
 
 // Check if the environment is in development mode.
-const dev = process.env.NODE_ENV !== 'production'; // Determine whether the app is in development mode
-// Create a new Next.js app instance, passing in dev mode and setting the directory to the parent directory.
+const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..') });
-const handle = nextApp.getRequestHandler(); // Get request handler from the Next.js app to handle Next.js-specific routes
+const handle = nextApp.getRequestHandler(); // Get request handler from the Next.js app.
 
 // Create a new Express server instance.
-const app = express(); // Initialize Express server
+const app = express();
+
+// Enable CORS for requests coming from the frontend on port 3000
+const corsOptions = {
+  origin: 'http://localhost:3000',
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 
 // Async function to set up the server
 const setupServer = async () => {
-  // Prepare the Next.js app before starting the server.
   await nextApp.prepare(); // Prepare Next.js for handling requests
-  console.log('Next.js app prepared'); // Confirm Next.js is ready
+  console.log('Next.js app prepared');
 
   // Test database connection by querying the current timestamp.
   try {
-    const res = await pool.query('SELECT NOW()'); // Test query to verify database connectivity
-    console.log('Database connection successful. Current time:', res.rows[0].now); // Log current timestamp to confirm successful database connection
+    const res = await pool.query('SELECT NOW()');
+    console.log('Database connection successful. Current time:', res.rows[0].now);
   } catch (err) {
     console.error('Error connecting to the database:', err); // Log database connection error
   }
 
   // Setup routes for the Express server.
-  
-  // Use raw body parsing for the Clerk webhooks route to handle JSON payloads correctly.
-  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks); // Route for handling Clerk webhooks
-
-  // Use JSON body parsing middleware for API routes related to users and schedules.
+  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
   app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
   app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
 

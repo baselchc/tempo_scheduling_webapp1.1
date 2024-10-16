@@ -72,9 +72,20 @@ CREATE TABLE IF NOT EXISTS availability (
 CREATE TABLE IF NOT EXISTS public.schedules
 (
     id SERIAL PRIMARY KEY,
-    manager_id INTEGER NOT NULL,
-    week_period DATE NOT NULL,
-    shift_start TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    shift_end TIMESTAMP WITHOUT TIME ZONE NOT NULL,
-    created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    role VARCHAR(50)
 );
+
+CREATE TABLE IF NOT EXISTS schedules (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER REFERENCES employee_list(id),
+    week_period DATE,
+    shift_start TIMESTAMP,
+    shift_end TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+
