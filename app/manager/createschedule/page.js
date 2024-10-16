@@ -18,12 +18,10 @@ export default function CreateSchedulePage() {
   const [shiftStart, setShiftStart] = useState("09:00 AM");
   const [shiftEnd, setShiftEnd] = useState("05:00 PM");
   const [statusMessage, setStatusMessage] = useState("");
-
   // Fetch employee list on component mount
   useEffect(() => {
     fetchEmployees();
   }, []);
-
   const fetchEmployees = async () => {
     try {
       const response = await axios.get(`${apiUrl}/api/employees/get-employees`);
@@ -45,16 +43,13 @@ export default function CreateSchedulePage() {
     combined.setHours(parsedHours);
     combined.setMinutes(minutes);
     combined.setSeconds(0);
-    return combined.toISOString(); // Format as a timestamp
+    return combined.toISOString();
   };
-
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const shiftStartTimestamp = combineDateTime(weekPeriod, shiftStart);
     const shiftEndTimestamp = combineDateTime(weekPeriod, shiftEnd);
-
     const scheduleData = {
       manager_id: parseInt(managerId), // Convert Manager ID to integer
       employee_id: selectedEmployeeId,
@@ -82,10 +77,8 @@ export default function CreateSchedulePage() {
           backgroundImage: `url('/images/loginpagebackground.webp')`,
         }}
       ></div>
-
       <div className="container mx-auto mt-10">
         <h1 className="text-3xl font-bold mb-6 text-white">Create Schedule</h1>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Manager ID Input */}
           <label className="block">
@@ -99,7 +92,6 @@ export default function CreateSchedulePage() {
               required
             />
           </label>
-
           {/* Employee Dropdown */}
           <label className="block">
             <span className="text-white">Select Employee</span>
@@ -117,7 +109,6 @@ export default function CreateSchedulePage() {
               ))}
             </select>
           </label>
-
           {/* Date Picker for Week Period */}
           <label className="block">
             <span className="text-white">Shift Start Date</span>
@@ -128,7 +119,6 @@ export default function CreateSchedulePage() {
               required
             />
           </label>
-
           {/* Time Picker for Shift Start */}
           <label className="block">
             <span className="text-white">Shift Start Time</span>
@@ -142,7 +132,6 @@ export default function CreateSchedulePage() {
               format="h:mm a" // 12-hour format
             />
           </label>
-
           {/* Time Picker for Shift End */}
           <label className="block">
             <span className="text-white">Shift End Time</span>
@@ -156,16 +145,13 @@ export default function CreateSchedulePage() {
               format="h:mm a" // 12-hour format
             />
           </label>
-
           {/* Submit Button */}
           <button className="w-full bg-blue-500 text-white p-2 rounded-lg" type="submit">
             Create Schedule
           </button>
         </form>
-
         <p className="mt-4 text-lg text-white">{statusMessage}</p>
       </div>
     </div>
   );
 }
- {/*Code enhanced by AI (ChatGPT 4o) Prompts were: "Generate a React component that allows creating a work schedule. It should include input for Manager ID, an employee dropdown from an API, date selection for the week, and time pickers for shift start and end. Use Tailwind CSS for styling with a blurred background and integrate a submit button to send the form data to a backend API."*/}
