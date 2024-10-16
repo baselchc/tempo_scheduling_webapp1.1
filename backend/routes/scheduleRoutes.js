@@ -20,4 +20,3 @@ router.post('/create-schedule', async (req, res) => {
 });
 
 module.exports = router;
-{/*Can you write an Express route that allows me to create a new schedule and store it in a PostgreSQL database? The schedule should include details like manager_id, employee_name, week_period, shift_start, and shift_end. The route should take these fields from the request body, insert them into the schedules table using a parameterized query, and return the newly created schedule.*/}
