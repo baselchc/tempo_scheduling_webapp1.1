@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
 const db = require('../database/db');
+const checkRole = require('../middleware/checkRole');
 
 const upload = multer({
   limits: {
@@ -16,7 +17,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
   console.log('Fetching profile for user:', userId);
  
   try {
-    const userQuery = 'SELECT first_name, last_name, email, phone, username, profile_image FROM users WHERE clerk_user_id = $1';
+    const userQuery = 'SELECT first_name, last_name, email, phone, username, profile_image, role FROM users WHERE clerk_user_id = $1';
     const { rows } = await db.query(userQuery, [userId]);
     if (rows.length === 0) {
       console.log('User not found in database');
@@ -37,6 +38,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       email: rows[0].email,
       phone: rows[0].phone,
       username: rows[0].username,
+      role: rows[0].role
       // availability
     };
 
@@ -123,6 +125,28 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
     await db.query('ROLLBACK');
     console.error('Error updating profile:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// PUT route to update user role
+router.put('/role', ClerkExpressWithAuth(), checkRole(['admin']),async (req, res) => {
+  const { userId, newRole } = req.body;
+
+  try {
+    // Update the user's role
+    const updateResult = await db.query(
+      'UPDATE users SET role = $1 WHERE clerk_user_id = $2 RETURNING *',
+      [newRole, userId]
+    );
+
+    if (updateResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'Role updated successfully', user: updateResult.rows[0] });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ error: 'Failed to update user role' });
   }
 });
 
