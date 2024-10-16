@@ -16,9 +16,8 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
   console.log('Fetching profile for user:', userId);
  
   try {
-    const userQuery = 'SELECT first_name, last_name, email, phone, username FROM users WHERE clerk_user_id = $1';
+    const userQuery = 'SELECT first_name, last_name, email, phone, username, profile_image FROM users WHERE clerk_user_id = $1';
     const { rows } = await db.query(userQuery, [userId]);
-
     if (rows.length === 0) {
       console.log('User not found in database');
       return res.status(404).json({ error: 'User not found' });
@@ -40,6 +39,10 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       username: rows[0].username,
       // availability
     };
+
+    if (rows[0].profile_image) {
+      userData.profileImageUrl = `data:image/jpeg;base64,${rows[0].profile_image.toString('base64')}`;
+    }
 
     res.json(userData);
   } catch (error) {
@@ -68,8 +71,8 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
     }
 
     const updateQuery = `
-      UPDATE users 
-      SET first_name = $1, last_name = $2, email = $3, phone = $4, username = $5, profile_image = $6
+      UPDATE users
+      SET first_name = $1, last_name = $2, email = $3, phone = $4, username = $5, profile_image = COALESCE($6, profile_image)
       WHERE clerk_user_id = $7
       RETURNING *
     `;
@@ -98,6 +101,23 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
     // }
 
     await db.query('COMMIT');
+
+    const updatedUser = updateResult.rows[0];
+    const responseData = {
+      message: 'Profile updated successfully',
+      user: {
+        firstName: updatedUser.first_name,
+        lastName: updatedUser.last_name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        username: updatedUser.username,
+      }
+    };
+
+    if (updatedUser.profile_image) {
+      responseData.user.profileImageUrl = `data:image/jpeg;base64,${updatedUser.profile_image.toString('base64')}`;
+    }
+    
     res.json({ message: 'Profile updated successfully', user: updateResult.rows[0] });
   } catch (error) {
     await db.query('ROLLBACK');
