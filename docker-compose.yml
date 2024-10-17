@@ -5,7 +5,6 @@ services:
     container_name: scheduling_website
     build:
       context: .
-      dockerfile: Dockerfile
     ports:
       - 7000:3000
     volumes:
