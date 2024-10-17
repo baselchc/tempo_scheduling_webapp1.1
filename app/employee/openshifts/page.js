@@ -15,7 +15,6 @@ export default function OpenShiftsPage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [openShifts, setOpenShifts] = useState([]);
   const [myShifts, setMyShifts] = useState([]);
-
   const router = useRouter();
 
   useEffect(() => {

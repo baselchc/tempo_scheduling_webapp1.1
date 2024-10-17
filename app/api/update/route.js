@@ -58,3 +58,6 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Error updating shift' }, { status: 500 });
   }
 }
+{/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
+  add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
+  tab and allow a view of Available Shifts and Open Shifts.*/}
