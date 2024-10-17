@@ -1,6 +1,7 @@
 "use client";
 
 import { SignUpButton, SignedOut, useAuth } from '@clerk/nextjs';
+import { Fullscreen } from '@mui/icons-material';
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -16,6 +17,8 @@ export default function Home() {
   }, [isLoaded, isSignedIn, router]);
 
   return (
+    
+    
     <div className="relative min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)] text-black">
       {/* Blurred background image */}
       <Image
@@ -31,6 +34,7 @@ export default function Home() {
           
           {/* Blurred container with adjustable size */}
           <div className="bg-black/15 backdrop-blur-md rounded-xl border-2 border-white p-8 flex flex-col items-center justify-center shadow-md w-full max-w-[800px] h-[500px]">
+            
             <Image
               className="mx-auto"
               src="/images/tempo-removebg-preview.png"
