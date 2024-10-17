@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "nodemon --watch . --exec 'next dev'",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "start:backend": "node backend/index.js",
-    "start:full": "npm run build && npm run start:backend"
+    "start:backend": "nodemon backend/index.js"
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.0.48",
