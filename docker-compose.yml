@@ -11,6 +11,16 @@ services:
     volumes:
       - .:/usr/src/app
       - /usr/src/app/node_modules
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /usr/src/app/src
+          ignore:
+            - node_modules/
+        - action: rebuild
+          path: /usr/src/app/package.json
+    
     environment:
       CLERK_SECRET_KEY: ${CLERK_SECRET_KEY}
       NODE_ENV: development

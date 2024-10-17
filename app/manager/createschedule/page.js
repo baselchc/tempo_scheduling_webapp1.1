@@ -85,7 +85,7 @@ export default function CreateSchedulePage() {
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-md brightness-75"
         style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
+          backgroundImage: `url('/public/images/loginpagebackground.webp')`,
         }}
       ></div>
 
