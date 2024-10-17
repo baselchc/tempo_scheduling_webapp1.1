@@ -123,5 +123,5 @@ const EmployeeCalendar = () => {
 };
 
 export default EmployeeCalendar;
- 
+
 // code written with help of Chatgpt4 and prompt was "create a EmployeeCalendar that displays an employee's weekly schedule in a visual table format. The component should dynamically generate the schedule for the current week starting from today. Each day should display shifts with start and end times. The times should range from 8 AM to 10 PM daily."

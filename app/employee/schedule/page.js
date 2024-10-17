@@ -109,12 +109,13 @@ export default function SchedulePage() {
 
   return (
     <div className="relative min-h-screen text-black font-arial">
-      <div
-        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
-        style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
-        }}
-      ></div>
+      <Image
+          src="/images/loginpagebackground.webp" 
+          alt="Background"
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
+      />
 
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 

@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const employeeRoutes = require('./routes/employeeRoutes'); // Import employeeRoutes
 const { pool } = require('./database/db');
 
 // Load environment variables from the .env file located in the parent directory.
@@ -39,34 +40,39 @@ const setupServer = async () => {
     const res = await pool.query('SELECT NOW()');
     console.log('Database connection successful. Current time:', res.rows[0].now);
   } catch (err) {
-    console.error('Error connecting to the database:', err);
+    console.error('Error connecting to the database:', err); // Log database connection error
   }
 
   // Setup routes for the Express server.
   app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
   app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
   app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
+  app.use('/api/employees', bodyParser.json(), employeeRoutes); // Route for handling employee-related API calls
 
   // Handle all other routes using Next.js's custom request handler.
   app.all('*', (req, res) => {
     return handle(req, res); // For all other requests, use Next.js to handle routing
   });
 
-  return app;
+  return app; // Return the configured Express server instance.
 };
 
+// If the file is being executed directly (instead of being imported as a module), set up the server.
 if (require.main === module) {
-  setupServer().then((server) => {
-    const port = process.env.PORT || 5000;
-    server.listen(port, (err) => {
-      if (err) throw err;
-      console.log(`> Server ready on http://localhost:${port}`);
-      console.log('> Database server and Clerk webhooks are active');
+  setupServer()
+    .then((server) => {
+      const port = process.env.PORT || 5000; // Set port to environment variable or default to 5000.
+      server.listen(port, (err) => {
+        if (err) throw err;
+        console.log(`> Server ready on http://localhost:${port}`); // Log server readiness
+        console.log('> Database server and Clerk webhooks are active'); // Log that webhooks and database are active
+      });
+    })
+    .catch((err) => {
+      console.error('Failed to start server:', err); // Log failure to start the server
+      process.exit(1); // Exit the process if server setup fails.
     });
-  }).catch(err => {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  });
 }
 
+// Export the setupServer function for use in other files.
 module.exports = setupServer;
