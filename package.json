@@ -43,9 +43,8 @@
     "react-clock": "^5.0.0",
     "react-datepicker": "^7.4.0",
     "react-dom": "^18.3.1",
-
-    "sharp": "^0.33.5",
     "react-time-picker": "^7.0.0",
+    "sharp": "^0.33.5",
     "styled-components": "^6.1.13",
     "svix": "^1.37.0",
     "tempo_scheduling_webapp1.1": "file:"
