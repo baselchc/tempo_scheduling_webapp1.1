@@ -8,13 +8,13 @@ services:
     ports:
       - 7000:3000
     volumes:
-      - .:/usr/src/app
+
       - /usr/src/app/node_modules
     develop:
       watch:
-        - action: sync
-          path: ./src
-          target: /usr/src/app/src
+        - action: sync+restart
+          path: ./app
+          target: ./usr/src/app/app
           ignore:
             - node_modules/
         - action: rebuild
