@@ -81,3 +81,12 @@ CREATE TABLE IF NOT EXISTS public.schedules
 );
 
 
+CREATE TABLE IF NOT EXISTS employee_list (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(255),
+    phone VARCHAR(20),
+    role VARCHAR(50) DEFAULT 'employee',  -- You can assign roles like 'employee' or 'manager'
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
