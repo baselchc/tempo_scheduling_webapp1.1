@@ -131,3 +131,4 @@ export default function EmployeeListPage() {
     </div>
   );
 }
+// Chatgpt prompt for enhancing :Generate a React component with useState and useEffect to manage an employee list. Fetch employees from a backend (GET /api/employees/get-employees) using axios, display them, and provide a form to add new employees (POST /api/employees/add-employee). Style it with Tailwind CSS.

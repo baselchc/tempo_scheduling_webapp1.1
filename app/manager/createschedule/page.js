@@ -173,3 +173,4 @@ export default function CreateSchedulePage() {
     </div>
   );
 }
+// chatgpt prompt for enhancing :Create a React component with useState and useEffect for scheduling shifts. Use axios to fetch employees (GET /api/employees/get-employees) and submit schedules (POST /api/schedule/create-schedule). Include date/time pickers, auto-fill shift end, and display success/failure messages. Style with Tailwind CSS.
