@@ -1,4 +1,5 @@
 "use client";
+import './globals.css';
 import React from 'react';
 import NavBar from './components/NavBar'; // Adjust path as needed
 import TopNavBar from './components/TopNavBar'; // Adjust path as needed
