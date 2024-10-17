@@ -8,6 +8,7 @@ const bodyParser = require('body-parser');
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
+const employeeRoutes = require('./routes/employeeRoutes'); // Import employeeRoutes
 const { pool } = require('./database/db');
 
 // Load environment variables from the .env file located in the parent directory.
@@ -46,6 +47,7 @@ const setupServer = async () => {
   app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
   app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
   app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
+  app.use('/api/employees', bodyParser.json(), employeeRoutes); // Route for handling employee-related API calls
 
   // Handle all other routes using Next.js's custom request handler.
   app.all('*', (req, res) => {
