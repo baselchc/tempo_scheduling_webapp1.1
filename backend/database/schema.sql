@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(255),
     last_name VARCHAR(255),
     phone VARCHAR(20),
-    role VARCHAR(50) DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin')),
+    role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
     profile_image BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -28,15 +28,10 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_name') THEN
         ALTER TABLE users ADD COLUMN last_name VARCHAR(255);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role') THEN
-        ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin'));
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone') THEN
         ALTER TABLE users ADD COLUMN phone VARCHAR(20);
     END IF;
 END $$;
-
-UPDATE users SET role = 'employee' WHERE role IS NULL;
 
 -- Make email optional
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
@@ -81,12 +76,4 @@ CREATE TABLE IF NOT EXISTS public.schedules (
 );
 
 
-CREATE TABLE IF NOT EXISTS employee_list (
-    id SERIAL PRIMARY KEY,
-    first_name VARCHAR(100),
-    last_name VARCHAR(100),
-    email VARCHAR(255),
-    phone VARCHAR(20),
-    role VARCHAR(50) DEFAULT 'employee',  -- You can assign roles like 'employee' or 'manager'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+

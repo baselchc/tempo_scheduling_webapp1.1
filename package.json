@@ -40,11 +40,12 @@
     "raw-body": "^3.0.0",
     "react": "^18.3.1",
     "react-calendar": "^5.0.0",
-    "react-clock": "^5.0.0",
-    "react-datepicker": "^7.4.0",
     "react-dom": "^18.3.1",
+<<<<<<< HEAD
     "react-time-picker": "^7.0.0",
     "sharp": "^0.33.5",
+=======
+>>>>>>> parent of d92f70c (Merge branch 'main' into Basel's-Branch)
     "styled-components": "^6.1.13",
     "svix": "^1.37.0",
     "tempo_scheduling_webapp1.1": "file:"
