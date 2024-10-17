@@ -18,12 +18,13 @@ export default function Home() {
   return (
     <div className="relative min-h-screen p-8 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)] text-black">
       {/* Blurred background image */}
-      <div
-        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-lg"
-        style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
-        }}
-      ></div>
+      <Image
+          src="/images/loginpagebackground.webp" // Ensure this path is correct
+          alt="Background"
+          layout="fill" // Use fill layout to cover the parent div
+          objectFit="cover" // Cover the entire area
+          className="filter blur-lg" // Add blur class here
+      />
 
       <SignedOut>
         <main className="flex flex-col gap-4 justify-center items-center text-center min-h-screen" style={{ transform: 'translateY(-10%)' }}>
