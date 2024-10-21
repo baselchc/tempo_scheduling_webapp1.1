@@ -16,7 +16,7 @@ export async function POST(request) {
     if (action === 'take') {
       // Move the shift from available_shifts to my_shifts
       const shiftRes = await pool.query(
-        'DELETE FROM available_shifts WHERE id = $1 RETURNING id, shift_start, shift_end, created_at',
+        'DELETE FROM available_shifts WHERE id = $1 RETURNING id, shift_start, shift_end, created_at, manager_id',
         [shiftId]
       );
 
@@ -26,30 +26,32 @@ export async function POST(request) {
 
       const shift = shiftRes.rows[0];
 
-      // Insert the shift into my_shifts for the Clerk user ID
+      // Insert the shift into my_shifts for the Clerk user ID along with manager_id
       const insertRes = await pool.query(
-        'INSERT INTO my_shifts (user_id, shift_start, shift_end, created_at) VALUES ($1, $2, $3, $4) RETURNING *',
-        [userId, shift.shift_start, shift.shift_end, shift.created_at]
+        'INSERT INTO my_shifts (user_id, shift_start, shift_end, created_at, manager_id) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+        [userId, shift.shift_start, shift.shift_end, shift.created_at, shift.manager_id]
       );
 
       return NextResponse.json(insertRes.rows[0]);
 
     } else if (action === 'drop') {
-      // Move the shift from my_shifts back to available_shifts
-      const shiftRes = await pool.query('SELECT * FROM my_shifts WHERE id = $1', [shiftId]);
+      // Select the shift that the user is trying to drop from my_shifts
+      const shiftRes = await pool.query('SELECT * FROM my_shifts WHERE id = $1 AND user_id = $2', [shiftId, userId]);
 
       if (shiftRes.rowCount === 0) {
-        return NextResponse.json({ error: 'Shift not found in my_shifts' }, { status: 404 });
+        return NextResponse.json({ error: 'Shift not found for this user' }, { status: 404 });
       }
 
       const shift = shiftRes.rows[0];
 
+      // Move the shift back to available_shifts with manager_id
       await pool.query(
-        'INSERT INTO available_shifts (shift_start, shift_end, created_at, reason) VALUES ($1, $2, $3, $4)',
-        [shift.shift_start, shift.shift_end, shift.created_at, reason || null]
+        'INSERT INTO available_shifts (manager_id, shift_start, shift_end, created_at, reason) VALUES ($1, $2, $3, $4, $5)',
+        [shift.manager_id, shift.shift_start, shift.shift_end, shift.created_at, reason || null]
       );
 
-      await pool.query('DELETE FROM my_shifts WHERE id = $1', [shiftId]);
+      // Remove the shift from my_shifts
+      await pool.query('DELETE FROM my_shifts WHERE id = $1 AND user_id = $2', [shiftId, userId]);
 
       return NextResponse.json({ success: true });
     } else {
@@ -57,10 +59,12 @@ export async function POST(request) {
     }
 
   } catch (err) {
-    console.error('Error updating shift:', err);
+    console.error('Error updating shift:', err.message);
     return NextResponse.json({ error: `Error updating shift: ${err.message}` }, { status: 500 });
   }
 }
+
+
 
 
 
