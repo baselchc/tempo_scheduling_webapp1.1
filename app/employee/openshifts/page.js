@@ -1,15 +1,15 @@
 "use client";
 
-import { useUser, useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
-import NavBar from '../components/NavBar';
-import { Notifications } from '@mui/icons-material';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useUser, useAuth } from "@clerk/nextjs";
+import { useState, useEffect } from "react";
+import NavBar from "../components/NavBar";
+import { Notifications } from "@mui/icons-material";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function OpenShiftsPage() {
   const { signOut } = useAuth();
-  const { user } = useUser();
+  const { user } = useUser(); // This user object includes clerk_user_id
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -19,28 +19,18 @@ export default function OpenShiftsPage() {
 
   useEffect(() => {
     async function fetchShifts() {
-      if (!user) return; // Make sure user is loaded before fetching shifts
+      if (!user) return;
+
       try {
-        // Fetch available shifts from public.schedules
-        const res = await fetch('/api/shifts?type=available');
-        if (!res.ok) throw new Error('Failed to fetch available shifts');
-        const availableShifts = await res.json();
-
-        // Fetch assigned shifts for the user from schedules
-        const myShiftsRes = await fetch('/api/shifts?type=my', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: `${user.firstName} ${user.lastName}`,
-          }),
-        });
-        if (!myShiftsRes.ok) throw new Error('Failed to fetch my shifts');
-        const userShifts = await myShiftsRes.json();
-
+        // Fetch available shifts
+        const availableRes = await fetch('/api/shifts?type=available');
+        const availableShifts = await availableRes.json();
         setOpenShifts(availableShifts);
-        setMyShifts(userShifts);
+
+        // Fetch my shifts using Clerk's userId
+        const myShiftsRes = await fetch(`/api/shifts?type=my&userId=${user.id}`); // Clerk userId here
+        const myShifts = await myShiftsRes.json();
+        setMyShifts(myShifts);
       } catch (error) {
         console.error('Error fetching shifts:', error);
       }
@@ -58,28 +48,27 @@ export default function OpenShiftsPage() {
     if (!shift) return;
 
     try {
-      const res = await fetch('/api/shifts/update', {
-        method: 'POST',
+      const res = await fetch("/api/update", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           shiftId: shift.id,
-          action: 'take',
-          reason: shift.reason || 'Taken shift',
-          userId: `${user.firstName} ${user.lastName}`,
+          action: "take",
+          userId: user.id, // Use Clerk userId here
         }),
       });
 
       if (res.ok) {
-        alert(`You have taken the shift on ${shift.day}, ${shift.time}.`);
+        alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
         setOpenShifts((prevShifts) => prevShifts.filter((s) => s.id !== shiftId));
-        setMyShifts((prevShifts) => [...prevShifts, { ...shift, assigned_to: `${user.firstName} ${user.lastName}` }]);
+        setMyShifts((prevShifts) => [...prevShifts, { ...shift, assigned_to: user.id }]);
       } else {
-        console.error('Error taking shift');
+        console.error("Error taking shift");
       }
     } catch (error) {
-      console.error('Error updating shift:', error);
+      console.error("Error updating shift:", error);
     }
   };
 
@@ -87,35 +76,33 @@ export default function OpenShiftsPage() {
     const shift = myShifts.find((s) => s.id === shiftId);
     if (!shift) return;
 
-    const reason = shift.reason.trim() === "" ? "Dropped Shift" : shift.reason;
-
     try {
-      const res = await fetch('/api/shifts/update', {
-        method: 'POST',
+      const res = await fetch("/api/update", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           shiftId: shift.id,
-          action: 'drop',
-          reason: `${user.firstName} ${user.lastName} - ${reason}`,
+          action: "drop",
+          userId: user.id, // Use Clerk userId here
         }),
       });
 
       if (res.ok) {
-        alert(`You have dropped the shift on ${shift.day}, ${shift.time}. Reason: ${reason}`);
-        setOpenShifts((prevShifts) => [...prevShifts, { ...shift, reason: `${user.firstName} ${user.lastName} - ${reason}`, assigned_to: null }]);
+        alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
+        setOpenShifts((prevShifts) => [...prevShifts, { ...shift, assigned_to: null }]);
         setMyShifts((prevShifts) => prevShifts.filter((s) => s.id !== shiftId));
       } else {
-        console.error('Error dropping shift');
+        console.error("Error dropping shift");
       }
     } catch (error) {
-      console.error('Error dropping shift:', error);
+      console.error("Error dropping shift:", error);
     }
   };
 
   return (
-    <div className="relative min-h-screen text-black"> 
+    <div className="relative min-h-screen text-black">
       {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
@@ -123,7 +110,6 @@ export default function OpenShiftsPage() {
           backgroundImage: `url('/images/loginpagebackground.webp')`,
         }}
       ></div>
-
       {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
@@ -263,6 +249,10 @@ export default function OpenShiftsPage() {
     </div>
   );
 }
+
+
+
+
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
   add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
   tab and allow a view of Available Shifts and Open Shifts.*/}

@@ -36,12 +36,25 @@ END $$;
 -- Make email optional
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
--- Schedules table
-CREATE TABLE IF NOT EXISTS schedules (
+-- Available Shifts table
+CREATE TABLE IF NOT EXISTS available_shifts (
     id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id),
+    manager_id INTEGER NOT NULL,
+    assigned_to VARCHAR(255), -- NULL if the shift is available
+    week_period DATE,
     shift_start TIMESTAMP NOT NULL,
     shift_end TIMESTAMP NOT NULL,
+    reason VARCHAR(255), -- Optional reason when a shift is dropped
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- My Shifts table
+CREATE TABLE IF NOT EXISTS my_shifts (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id), -- this must reference the integer ID from `users` table
+    shift_start TIMESTAMP NOT NULL,
+    shift_end TIMESTAMP NOT NULL,
+    reason VARCHAR(255), -- Store the reason why a user dropped a shift
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -63,17 +76,3 @@ CREATE TABLE IF NOT EXISTS availability (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, day_of_week)
 );
-
-CREATE TABLE IF NOT EXISTS public.schedules (
-    id SERIAL PRIMARY KEY,
-    manager_id INTEGER NOT NULL,
-    assigned_to VARCHAR(255), -- NULL if the shift is available
-    week_period DATE,
-    shift_start TIMESTAMP NOT NULL,
-    shift_end TIMESTAMP NOT NULL,
-    reason VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
-
