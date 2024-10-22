@@ -244,3 +244,8 @@ export default function EmployeeProfile() {
 </div>
   );
 }
+
+/* 
+Used Claude AI to assit with creation of the page, "List the steps to Allow users to view and edit their profile information"
+Which allowed for referencing and learning while creating this page
+*/
