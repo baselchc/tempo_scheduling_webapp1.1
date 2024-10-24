@@ -11,7 +11,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
-      router.push("/employee");
+      router.push("/whitelist");
     }
   }, [isLoaded, isSignedIn, router]);
 

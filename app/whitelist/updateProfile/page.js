@@ -1,14 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useUser } from "@clerk/nextjs"; // Import the useUser hook
 
 export default function UpdateProfilePage() {
+  const { user } = useUser(); // Get the user object from Clerk
   const [profile, setProfile] = useState({
     firstName: "",
     lastName: "",
     email: "",
     phone: "",
   });
+
+  // Populate the state with user data from Clerk
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.primaryEmailAddress?.emailAddress || "",
+        phone: "", // You can modify this to get the phone if it's stored elsewhere
+      });
+    }
+  }, [user]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,7 +59,7 @@ export default function UpdateProfilePage() {
             value={profile.firstName}
             onChange={handleChange}
             placeholder="First Name"
-            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
+            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
             required
           />
           <input
@@ -54,7 +68,7 @@ export default function UpdateProfilePage() {
             value={profile.lastName}
             onChange={handleChange}
             placeholder="Last Name"
-            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
+            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
             required
           />
           <input
@@ -63,7 +77,7 @@ export default function UpdateProfilePage() {
             value={profile.email}
             onChange={handleChange}
             placeholder="Email"
-            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
+            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
             required
           />
           <input
@@ -72,7 +86,7 @@ export default function UpdateProfilePage() {
             value={profile.phone}
             onChange={handleChange}
             placeholder="Phone Number"
-            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
+            className="w-full p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
             required
           />
           <button
@@ -86,4 +100,3 @@ export default function UpdateProfilePage() {
     </main>
   );
 }
-
