@@ -65,3 +65,22 @@ To install these npm packages, run the following command in your project directo
     c. Type `./update_db.sh` and press Enter.
 
 Note: If you encounter any issues running the script, make sure it's executable by running `chmod +x update_db.sh` in Git Bash before trying to execute it.
+
+To run:
+
+1. in vs code terminal, type npm run start:full
+2. in command prompt, type ngrok http 5000
+3. Cick on the web interface link
+4. Copy the URL on the webpage
+5. Paste url in clerk dashboard webhook endpoint (make sure "/webhooks/clerk" is at the end)
+6. In vs code go to .env.localhost
+7. Replace the url beside NEXT_PUBLIC_API_URL= with your new one
+8. Cick the link on the ngrok webpage which will send you to our webpage
+
+To update db:
+
+1. Open a new vs code terminal
+2. Click the drop down beside the plus icon on the top right of the terminal 
+3. Select Git Bash
+4. Type "cd backend/database"
+5. Now type "./update_db.sh"
