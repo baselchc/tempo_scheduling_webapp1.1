@@ -72,19 +72,19 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
 // Function to handle 'user.created' event.
 // Inserts a new user into the database or updates the user's information if they already exist.
 async function handleUserCreated(data) {
-  const { id, email_addresses, username, first_name, last_name } = data; // Destructure the event data.
-  const email = email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address; // Extract the primary email address.
+  const { id, email_addresses, username, first_name, last_name } = data;
+  const email = email_addresses.find(e => e.id === data.primary_email_address_id)?.email_address;
 
   const query = `
-    INSERT INTO users (clerk_user_id, email, username, first_name, last_name)
-    VALUES ($1, $2, $3, $4, $5)
+    INSERT INTO users (clerk_user_id, email, username, first_name, last_name, role)
+    VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (clerk_user_id) DO UPDATE
-    SET email = $2, username = $3, first_name = $4, last_name = $5
+    SET email = $2, username = $3, first_name = $4, last_name = $5, role = $6
   `;
 
   try {
     // Execute the query to insert or update the user based on the event data.
-    await db.query(query, [id, email, username, first_name, last_name]);
+    await db.query(query, [id, email, username || null, first_name || null, last_name || null, 'employee']);
     console.log('User created or updated:', id); // Log success message with user ID.
   } catch (error) {
     console.error('Error inserting/updating user in database:', error); // Log error if the query fails.
