@@ -1,83 +1,111 @@
 "use client";
 
-import { useUser, useAuth } from '@clerk/nextjs';
-import { useState } from 'react';
-import NavBar from '../components/NavBar'; // Import the NavBar component
-import { Notifications } from '@mui/icons-material'; // Import Material UI icons for notifications
-import Image from 'next/image'; // Correct Image import
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
+import { useUser, useAuth } from "@clerk/nextjs";
+import { useState, useEffect, useCallback } from "react";
+import NavBar from "../components/NavBar";
+import { Notifications } from "@mui/icons-material";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 
 export default function OpenShiftsPage() {
   const { signOut } = useAuth();
-  const { user } = useUser();
+  const { user } = useUser(); // This user object includes clerk_user_id
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  
-  // State for open shifts and my shifts
-  const [openShifts, setOpenShifts] = useState([
-    { day: "Monday", time: "9 AM - 1 PM", reason: "John Doe - Going to the doctor", id: 1 },
-    { day: "Tuesday", time: "2 PM - 6 PM", reason: "Jane Doe - Going to a wedding", id: 2 },
-    { day: "Wednesday", time: "8 AM - 12 PM", reason: "Unassigned shift", id: 3 },
-    { day: "Thursday", time: "3 PM - 8 PM", reason: "John Doe - Family emergency", id: 4 },
-  ]);
+  const [openShifts, setOpenShifts] = useState([]);
+  const [myShifts, setMyShifts] = useState([]);
+  const router = useRouter();
 
-  const [myShifts, setMyShifts] = useState([
-    { day: "Friday", time: "9 AM - 5 PM", reason: "", id: 5 },
-    { day: "Saturday", time: "10 AM - 6 PM", reason: "", id: 6 },
-  ]);
+  // Centralized function to fetch shifts and update the state
+  const fetchShifts = useCallback(async () => {
+    if (!user) return;
 
-  const router = useRouter(); // Initialize the router
+    try {
+      // Fetch available shifts
+      const availableRes = await fetch('/api/shifts?type=available');
+      const availableShifts = await availableRes.json();
+      setOpenShifts(availableShifts);
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);  // Toggle sidebar
+      // Fetch my shifts using Clerk's userId
+      const myShiftsRes = await fetch(`/api/shifts?type=my&userId=${user.id}`);
+      const myShifts = await myShiftsRes.json();
+      setMyShifts(myShifts);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+    }
+  }, [user]);
+
+  // Initial load or when the user changes
+  useEffect(() => {
+    if (user) {
+      fetchShifts();
+    }
+  }, [user, fetchShifts]);
+
+  const toggleMenu = () => setMenuOpen(!menuOpen);
+  const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
+  const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
+
+  const takeShift = async (shiftId) => {
+    const shift = openShifts.find((s) => s.id === shiftId);
+    if (!shift) return;
+
+    try {
+      const res = await fetch("/api/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shiftId: shift.id,
+          action: "take",
+          userId: user.id, // Use Clerk userId here
+        }),
+      });
+
+      if (res.ok) {
+        alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
+        fetchShifts(); // Fetch updated shifts after taking a shift
+      } else {
+        console.error("Error taking shift");
+      }
+    } catch (error) {
+      console.error("Error updating shift:", error);
+    }
   };
 
-  const toggleNotifications = () => {
-    setNotificationsOpen(!notificationsOpen);
-  };
-
-  const toggleProfileMenu = () => {
-    setProfileMenuOpen(!profileMenuOpen);
-  };
-
-  // Handle taking a shift
-  // Handle taking a shift
-const takeShift = (shiftId) => {
-  const shift = openShifts.find((s) => s.id === shiftId);
-  
-  alert(`You have taken the shift on ${shift.day}, ${shift.time}.`);
-  
-  // Remove the shift from open shifts
-  setOpenShifts((prevShifts) => prevShifts.filter((s) => s.id !== shiftId));
-  
-  // Add the shift to my shifts
-  setMyShifts((prevShifts) => [
-    ...prevShifts,
-    { ...shift, reason: shift.reason || "Taken shift" }
-  ]);
-};
-
-
-  // Handle dropping or swapping a shift
-  const dropShift = (shiftId) => {
+  const dropShift = async (shiftId) => {
     const shift = myShifts.find((s) => s.id === shiftId);
-    const reason = shift.reason.trim() === "" ? "Dropped Shift" : shift.reason;
-    
-    alert(`You have dropped the shift on ${shift.day}, ${shift.time}. Reason: ${reason}`);
-    
-    // Move the shift to open shifts with the reason or default message
-    setOpenShifts((prevShifts) => [
-      ...prevShifts,
-      { ...shift, reason: `${user?.firstName} ${user?.lastName} - ${reason}` }
-    ]);
-    
-    // Remove the shift from my shifts
-    setMyShifts((prevShifts) => prevShifts.filter((s) => s.id !== shiftId));
+    if (!shift) return;
+
+    try {
+      const res = await fetch("/api/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          shiftId: shift.id,
+          action: "drop",
+          userId: user.id, // Use Clerk userId here
+          reason: shift.reason // Include the reason for dropping the shift
+        }),
+      });
+
+      if (res.ok) {
+        alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
+        fetchShifts(); // Fetch updated shifts after dropping a shift
+      } else {
+        console.error("Error dropping shift");
+      }
+    } catch (error) {
+      console.error("Error dropping shift:", error);
+    }
   };
 
   return (
-    <div className="relative min-h-screen text-black"> 
+    <div className="relative min-h-screen text-black">
       {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
@@ -85,16 +113,13 @@ const takeShift = (shiftId) => {
           backgroundImage: `url('/images/loginpagebackground.webp')`,
         }}
       ></div>
-
       {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
       {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
-        {/* Notifications Bell */}
         <button onClick={toggleNotifications} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
-          {/* Notification Popup */}
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
               <p>No new notifications.</p>
@@ -102,11 +127,10 @@ const takeShift = (shiftId) => {
           )}
         </button>
 
-        {/* User Profile Dropdown */}
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'} // Use local default avatar image
+            src={user?.profileImageUrl || '/images/default-avatar.png'}
             alt="Profile image"
             width={40}
             height={40}
@@ -129,9 +153,7 @@ const takeShift = (shiftId) => {
 
       {/* Main content space */}
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
-        <h1 className="text-4xl font-bold text-center text-white mb-8">
-          Open Shifts
-        </h1>
+        <h1 className="text-4xl font-bold text-center text-white mb-8">Open Shifts</h1>
 
         {/* Open Shifts Section */}
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
@@ -146,21 +168,29 @@ const takeShift = (shiftId) => {
               </tr>
             </thead>
             <tbody>
-              {openShifts.map((shift) => (
-                <tr key={shift.id} className="border-b border-white/20">
-                  <td className="p-4 text-white">{shift.day}</td>
-                  <td className="p-4 text-white">{shift.time}</td>
-                  <td className="p-4 text-white">{shift.reason}</td>
-                  <td className="p-4 text-white">
-                    <button
-                      className="bg-blue-400 text-white p-2 rounded-lg"
-                      onClick={() => takeShift(shift.id)}
-                    >
-                      Take this shift
-                    </button>
-                  </td>
+              {openShifts.length > 0 ? (
+                openShifts.map((shift) => (
+                  <tr key={shift.id} className="border-b border-white/20">
+                    <td className="p-4 text-white">{new Date(shift.shift_start).toLocaleDateString('en-US', { weekday: 'long' })}</td>
+                    <td className="p-4 text-white">
+                      {new Date(shift.shift_start).toLocaleTimeString('en-US')} - {new Date(shift.shift_end).toLocaleTimeString('en-US')}
+                    </td>
+                    <td className="p-4 text-white">{shift.reason}</td>
+                    <td className="p-4 text-white">
+                      <button
+                        className="bg-blue-400 text-white p-2 rounded-lg"
+                        onClick={() => takeShift(shift.id)}
+                      >
+                        Take this shift
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="p-4 text-white text-center">No available shifts</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -178,35 +208,43 @@ const takeShift = (shiftId) => {
               </tr>
             </thead>
             <tbody>
-              {myShifts.map((shift) => (
-                <tr key={shift.id} className="border-b border-white/20">
-                  <td className="p-4 text-white">{shift.day}</td>
-                  <td className="p-4 text-white">{shift.time}</td>
-                  <td className="p-4 text-white">
-                    <input
-                      type="text"
-                      className="bg-transparent border-b-6 border-white w-[265px] placeholder-white"
-                      placeholder="Enter reason (optional)"
-                      value={shift.reason}
-                      onChange={(e) =>
-                        setMyShifts((prevShifts) =>
-                          prevShifts.map((s) =>
-                            s.id === shift.id ? { ...s, reason: e.target.value } : s
+              {myShifts.length > 0 ? (
+                myShifts.map((shift) => (
+                  <tr key={shift.id} className="border-b border-white/20">
+                    <td className="p-4 text-white">{new Date(shift.shift_start).toLocaleDateString('en-US', { weekday: 'long' })}</td>
+                    <td className="p-4 text-white">
+                      {new Date(shift.shift_start).toLocaleTimeString('en-US')} - {new Date(shift.shift_end).toLocaleTimeString('en-US')}
+                    </td>
+                    <td className="p-4 text-white">
+                      <input
+                        type="text"
+                        className="bg-transparent border-b-2 border-white w-full placeholder-white"
+                        placeholder="Enter reason (optional)"
+                        value={shift.reason}
+                        onChange={(e) =>
+                          setMyShifts((prevShifts) =>
+                            prevShifts.map((s) =>
+                              s.id === shift.id ? { ...s, reason: e.target.value } : s
+                            )
                           )
-                        )
-                      }
-                    />
-                  </td>
-                  <td className="p-4 text-white">
-                    <button
-                      className="w-[110px] bg-red-500 text-white p-2 rounded-lg mr-2"
-                      onClick={() => dropShift(shift.id)}
-                    >
-                      Drop Shift
-                    </button>
-                  </td>
+                        }
+                      />
+                    </td>
+                    <td className="p-4 text-white">
+                      <button
+                        className="w-[110px] bg-red-500 text-white p-2 rounded-lg mr-2"
+                        onClick={() => dropShift(shift.id)}
+                      >
+                        Drop Shift
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4" className="p-4 text-white text-center">No shifts assigned</td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -215,7 +253,6 @@ const takeShift = (shiftId) => {
   );
 }
 
-{/*Code enhanced by AI (GPT 4o), prompt was: Create a "open shifts" page that is consistent with the looks of the website, add to this page an option to grab shifts with 
-  the information of the day of the week and the hour start and end, that are either not assigned to a specific employee or that some employee cannot do because they are 
-  "Going to a wedding" or "Going to the doctor" add mock names for the employees like John or Jane Doe and add a button to these open shifts that allows the user to 
-  "Take this shift" and "Drop Shifts"*/}
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
+  add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
+  tab and allow a view of Available Shifts and Open Shifts.*/}
