@@ -76,7 +76,7 @@ export default function EmployeeProfile() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_FILE_SIZE) {
-        setError("File size exceeds 5MB limit, sorry!");
+        setError("File size exceeds 5MB limit, sorry");
         return;
       }
       if (!file.type.startsWith('image/')) {
