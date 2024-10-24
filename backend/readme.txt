@@ -10,6 +10,7 @@ Before starting, ensure you have the following installed:
 npm packages required:
 - express
 - next
+- sharp (image converter)
 - react
 - react-dom
 - pg (node-postgres)

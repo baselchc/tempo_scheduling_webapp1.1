@@ -25,6 +25,7 @@
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
+    "datepicker": "^0.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "googleapis": "^144.0.0",

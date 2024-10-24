@@ -1,7 +1,7 @@
 "use client";
 
 import { useUser, useAuth } from '@clerk/nextjs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import NavBar from './components/NavBar'; // Import the NavBar component
 import { Notifications } from '@mui/icons-material'; // Icons for user and notifications
 import Image from 'next/image'; // Correct Image import
@@ -13,6 +13,8 @@ export default function EmployeePage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [code, setCode] = useState(''); // State for local stored code
+  const [storedCode, setStoredCode] = useState(localStorage.getItem('storedCode') || '1111'); // Initialize with local storage value
 
   const router = useRouter(); // Initialize the router
 
@@ -28,15 +30,23 @@ export default function EmployeePage() {
     setProfileMenuOpen(!profileMenuOpen);
   };
 
+  // Handle the code change
+  const handleCodeChange = () => {
+    localStorage.setItem('storedCode', code); // Update local storage
+    setStoredCode(code); // Update local stored code state
+    setCode(''); // Clear input after saving
+  };
+
   return (
     <div className="relative min-h-screen text-black">
       {/* Blurred background image */}
-      <div
-        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
-        style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
-        }}
-      ></div>
+      <Image
+        src="/images/loginpagebackground.webp" // Ensure this path is correct
+        alt="Background"
+        layout="fill" // Use fill layout to cover the parent div
+        objectFit="cover" // Cover the entire area
+        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl" // Add blur class here
+      />
 
       {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
@@ -93,17 +103,34 @@ export default function EmployeePage() {
         </h1>
         {/* User Information */}
         <div className="mt-6 text-center">
-        {user ? (
-          <>
-            <h3 className="text-xl font-bold">Hello, {user.firstName} {user.lastName}!</h3>
-            <p className="text-sm text-gray-500"> {user.publicMetadata?.role || ""}.</p>
-          </>
-        ) : (
-          <p className="text-sm text-gray-500">Loading user information...</p>
-        )}
-      </div>
+          {user ? (
+            <>
+              <h3 className="text-xl font-bold">Hello, {user.firstName} {user.lastName}!</h3>
+              <p className="text-sm text-gray-500"> {user.publicMetadata?.role || ""}.</p>
+            </>
+          ) : (
+            <p className="text-sm text-gray-500">Loading user information...</p>
+          )}
+        </div>
 
-        
+        {/* Change Local Storage Code Section */}
+        <div className="mt-8">
+          <h2 className="text-xl font-bold text-white mb-4">Change New Employee Code</h2>
+          <input
+            type="text"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            placeholder="Enter new code"
+            className="p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
+          />
+          <button
+            onClick={handleCodeChange}
+            className="ml-4 px-4 py-2 bg-white text-black rounded-md hover:bg-gray-300 transition-colors"
+          >
+            Change Code
+          </button>
+          <p className="mt-2 text-white">Current Code: {storedCode}</p>
+        </div>
       </div>
     </div>
   );

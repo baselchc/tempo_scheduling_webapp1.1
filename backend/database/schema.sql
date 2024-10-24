@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS users (
     phone VARCHAR(20),
     role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
     profile_image BYTEA,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_whitelisted BOOLEAN DEFAULT FALSE
 );
 
 -- Add new columns if they don't exist
