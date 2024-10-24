@@ -51,10 +51,7 @@ export default function EmployeeProfile() {
       setPhone(data.phone || '');
       setUsername(data.username || '');
       // setAvailability(data.availability || {});
-      if (data.profileImageUrl) {
-        setProfileImagePreview(data.profileImageUrl);
-      }
-      
+      setProfileImagePreview(data.profileImageUrl || null);
       setIsLoading(false);
     } catch (err) {
       setError(`Failed to load profile: ${err.message}`);
@@ -140,19 +137,9 @@ export default function EmployeeProfile() {
         <button onClick={toggleNotifications} className="relative"></button>
 
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
-  <div className="w-10 h-10 relative overflow-hidden rounded-full">
-    <Image 
-      className="object-cover"
-      src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} 
-      alt="Profile image" 
-      layout="fill"
-      sizes="(max-width: 768px) 100vw,
-             (max-width: 1200px) 50vw,
-             33vw"
-    />
-  </div>
-  <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
-</button>
+          <Image className="rounded-full" src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} alt="Profile image" width={40} height={40} />
+          <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
+        </button>
         {profileMenuOpen && (
           <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
             <ul>
@@ -176,72 +163,67 @@ export default function EmployeeProfile() {
           </div>
         )}
 
-<div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-  <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
-  <div className="space-y-4">
-    <div className="mb-4">
-      <label className="block mb-2 text-white">Profile Image:</label>
-      <div className="flex items-start space-x-4">
-        <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
-          <Image
-            src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'}
-            alt="Profile Preview"
-            layout="fill"
-            objectFit="cover"
-          />
+        <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
+          <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
+          <div className="text-white space-y-4">
+            <div className="mb-4">
+              <label className="block mb-2">Profile Image:</label>
+              <div className="flex items-center space-x-4">
+                <Image 
+                  src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} 
+                  alt="Profile Preview" 
+                  width={100} 
+                  height={100} 
+                  className="rounded-full"
+                />
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleProfileImageChange}
+                  className="text-sm text-grey-500
+                    file:mr-5 file:py-2 file:px-6
+                    file:rounded-full file:border-0
+                    file:text-sm file:font-medium
+                    file:bg-blue-50 file:text-black-700
+                    hover:file:cursor-pointer hover:file:bg-amber-50
+                    hover:file:text-blue-700"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block mb-1">First Name:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1">Last Name:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1">Email:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1">Phone:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1">Username:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
+          </div>
         </div>
-        <div className="flex-grow">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleProfileImageChange}
-            className="text-sm text-white
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-full file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-black
-              hover:file:bg-blue-100"
-          />
-          <p className="mt-2 text-sm text-gray-300">
-            Max file size: 5MB. Supported formats: JPEG, PNG, GIF.
-          </p>
+        
+        <div className="mt-8 text-center">
+          <button 
+            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg transition duration-300 ease-in-out text-lg font-semibold" 
+            onClick={handleProfileSubmit} 
+            disabled={isLoading}
+          >
+            {isLoading ? 'Saving...' : 'Save Profile'}
+          </button>
         </div>
       </div>
     </div>
-    <div>
-      <label className="block mb-1 text-white">First Name:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Last Name:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Email:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Phone:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Username:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
-    </div>
-  </div>
-</div>
-
-<div className="mt-8 text-center">
-  <button
-    className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg transition duration-300 ease-in-out text-lg font-semibold"
-    onClick={handleProfileSubmit}
-    disabled={isLoading}
-  >
-    {isLoading ? 'Saving...' : 'Save Profile'}
-  </button>
-    </div>
-  </div>
-</div>
   );
 }
 
