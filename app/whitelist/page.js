@@ -48,9 +48,7 @@ export default function WhitelistPage() {
         />
         
         <div className="text-lg sm:text-xl font-[family-name:var(--font-geist-mono)] mt-2 font-bold">
-          Sorry for the inconvenience, it seems like your manager has not added you to the whitelist
-          yet. Please contact your manager to get added or enter the code
-          provided by your manager.
+        This email is not part of this organization. Please contact management or provide an Authorization code.
         </div>
 
         {/* Code input form */}
