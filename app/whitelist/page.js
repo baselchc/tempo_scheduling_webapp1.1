@@ -36,7 +36,7 @@ export default function WhitelistPage() {
         }}
       ></div>
         
-      {/* Blurred container with adjustable size */}
+      {/* Blurred container with adjustable size*/}
       <div className="bg-black/15 backdrop-blur-md rounded-xl border-2 border-white p-8 flex flex-col items-center justify-center shadow-md w-full max-w-[800px] h-[600px]">
         <Image
           className="mx-auto"
