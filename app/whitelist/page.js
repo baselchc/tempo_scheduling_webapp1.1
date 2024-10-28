@@ -36,7 +36,7 @@ export default function WhitelistPage() {
         }}
       ></div>
         
-      {/* Blurred container with adjustable size */}
+      {/* Blurred container with adjustable size*/}
       <div className="bg-black/15 backdrop-blur-md rounded-xl border-2 border-white p-8 flex flex-col items-center justify-center shadow-md w-full max-w-[800px] h-[600px]">
         <Image
           className="mx-auto"
@@ -48,9 +48,7 @@ export default function WhitelistPage() {
         />
         
         <div className="text-lg sm:text-xl font-[family-name:var(--font-geist-mono)] mt-2 font-bold">
-          Sorry for the inconvenience, it seems like your manager has not added you to the whitelist
-          yet. Please contact your manager to get added or enter the code
-          provided by your manager.
+          This email is not part of this organization. Please contact management or provide an Authorization code.
         </div>
 
         {/* Code input form */}

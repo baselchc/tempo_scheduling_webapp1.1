@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(255),
     last_name VARCHAR(255),
     phone VARCHAR(20),
-    role VARCHAR(50) DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin')),
+    role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
     profile_image BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_whitelisted BOOLEAN DEFAULT FALSE
@@ -29,25 +29,33 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'last_name') THEN
         ALTER TABLE users ADD COLUMN last_name VARCHAR(255);
     END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'role') THEN
-        ALTER TABLE users ADD COLUMN role VARCHAR(50) DEFAULT 'employee' CHECK (role IN ('employee', 'manager', 'admin'));
-    END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'phone') THEN
         ALTER TABLE users ADD COLUMN phone VARCHAR(20);
     END IF;
 END $$;
 
-UPDATE users SET role = 'employee' WHERE role IS NULL;
-
 -- Make email optional
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
--- Schedules table
-CREATE TABLE IF NOT EXISTS schedules (
+-- Available Shifts table
+CREATE TABLE IF NOT EXISTS available_shifts (
     id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id),
+    manager_id INTEGER NOT NULL,
+    assigned_to VARCHAR(255), -- NULL if the shift is available
+    week_period DATE,
     shift_start TIMESTAMP NOT NULL,
     shift_end TIMESTAMP NOT NULL,
+    reason VARCHAR(255), -- Optional reason when a shift is dropped
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- My Shifts table
+CREATE TABLE IF NOT EXISTS my_shifts (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id), -- this must reference the integer ID from `users` table
+    shift_start TIMESTAMP NOT NULL,
+    shift_end TIMESTAMP NOT NULL,
+    reason VARCHAR(255), -- Store the reason why a user dropped a shift
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -69,16 +77,3 @@ CREATE TABLE IF NOT EXISTS availability (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(user_id, day_of_week)
 );
-
-CREATE TABLE IF NOT EXISTS public.schedules
-(
-    id SERIAL PRIMARY KEY,
-    manager_id INTEGER NOT NULL,
-    employee_name VARCHAR(255) NOT NULL,
-    week_period DATE,
-    shift_start TIMESTAMP NOT NULL,
-    shift_end TIMESTAMP NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-
