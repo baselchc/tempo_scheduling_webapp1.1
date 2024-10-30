@@ -48,7 +48,7 @@ export default function WhitelistPage() {
         />
         
         <div className="text-lg sm:text-xl font-[family-name:var(--font-geist-mono)] mt-2 font-bold">
-          This email is not part of this organization. Please contact management or provide an Authorization code.
+          This email does not seem to be part of this organization. Please contact management or provide an authorization code.
         </div>
 
         {/* Code input form */}
