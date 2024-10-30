@@ -6,6 +6,7 @@ import NavBar from "../components/NavBar";
 import { Notifications } from "@mui/icons-material";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { supabase } from '../../../backend/database/supabaseClient';
 
 export default function OpenShiftsPage() {
   const { signOut } = useAuth();
@@ -18,23 +19,31 @@ export default function OpenShiftsPage() {
   const router = useRouter();
 
   // Centralized function to fetch shifts and update the state
-  const fetchShifts = useCallback(async () => {
-    if (!user) return;
+ // Updated fetchShifts function
+const fetchShifts = useCallback(async () => {
+  if (!user) return;
 
-    try {
-      // Fetch available shifts
-      const availableRes = await fetch('/api/shifts?type=available');
-      const availableShifts = await availableRes.json();
-      setOpenShifts(availableShifts);
+  try {
+    // Fetch available shifts from Supabase
+    const { data: availableShifts, error: availableError } = await supabase
+      .from('available_shifts')
+      .select('*');
+    
+    if (availableError) throw availableError;
+    setOpenShifts(availableShifts);
 
-      // Fetch my shifts using Clerk's userId
-      const myShiftsRes = await fetch(`/api/shifts?type=my&userId=${user.id}`);
-      const myShifts = await myShiftsRes.json();
-      setMyShifts(myShifts);
-    } catch (error) {
-      console.error('Error fetching shifts:', error);
-    }
-  }, [user]);
+    // Fetch user's shifts using Clerk's userId from Supabase
+    const { data: myShifts, error: myShiftsError } = await supabase
+      .from('my_shifts')
+      .select('*')
+      .eq('user_id', user.id);
+    
+    if (myShiftsError) throw myShiftsError;
+    setMyShifts(myShifts);
+  } catch (error) {
+    console.error('Error fetching shifts:', error);
+  }
+}, [user]);
 
   // Initial load or when the user changes
   useEffect(() => {
@@ -50,59 +59,65 @@ export default function OpenShiftsPage() {
   const takeShift = async (shiftId) => {
     const shift = openShifts.find((s) => s.id === shiftId);
     if (!shift) return;
-
+  
+    console.log("Shift data to insert:", { ...shift, user_id: user.id });
+  
     try {
-      const res = await fetch("/api/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-          action: "take",
-          userId: user.id, // Use Clerk userId here
-        }),
-      });
-
-      if (res.ok) {
-        alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-        fetchShifts(); // Fetch updated shifts after taking a shift
-      } else {
-        console.error("Error taking shift");
+      // Move shift from available_shifts to my_shifts in Supabase
+      const { error: insertError } = await supabase
+        .from('my_shifts')
+        .insert({ ...shift, user_id: user.id });
+  
+      if (insertError) {
+        console.error("Supabase insert error:", insertError);
+        throw insertError;
       }
+  
+      // Remove shift from available_shifts
+      const { error: deleteError } = await supabase
+        .from('available_shifts')
+        .delete()
+        .eq('id', shift.id);
+  
+      if (deleteError) {
+        console.error("Supabase delete error:", deleteError);
+        throw deleteError;
+      }
+  
+      alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
+      fetchShifts(); // Fetch updated shifts after taking a shift
     } catch (error) {
-      console.error("Error updating shift:", error);
+      console.error("Error taking shift:", error);
     }
   };
 
   const dropShift = async (shiftId) => {
     const shift = myShifts.find((s) => s.id === shiftId);
     if (!shift) return;
-
+  
     try {
-      const res = await fetch("/api/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-          action: "drop",
-          userId: user.id, // Use Clerk userId here
-          reason: shift.reason // Include the reason for dropping the shift
-        }),
-      });
-
-      if (res.ok) {
-        alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-        fetchShifts(); // Fetch updated shifts after dropping a shift
-      } else {
-        console.error("Error dropping shift");
-      }
+      // Move shift back to available_shifts
+      const { error: insertError } = await supabase
+        .from('available_shifts')
+        .insert({ ...shift, reason: shift.reason || 'No reason provided' });
+  
+      if (insertError) throw insertError;
+  
+      // Remove shift from schedules
+      const { error: deleteError } = await supabase
+        .from('my_shifts')
+        .delete()
+        .eq('id', shift.id);
+  
+      if (deleteError) throw deleteError;
+  
+      alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
+      fetchShifts(); // Fetch updated shifts after dropping a shift
     } catch (error) {
       console.error("Error dropping shift:", error);
     }
   };
+  
 
   return (
     <div className="relative min-h-screen text-black">

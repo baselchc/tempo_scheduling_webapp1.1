@@ -1,55 +1,56 @@
 const express = require('express');
 const next = require('next');
 const path = require('path');
-const cors = require('cors');  // Import CORS
+const cors = require('cors');
 const bodyParser = require('body-parser');
 
-// Import route handlers and database configuration.
+// Load environment variables
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
+console.log("Loaded Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+console.log("Loaded Supabase ANON KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+console.log("API URL:", process.env.API_URL);
+
+// Import route handlers
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
-const { pool } = require('./database/db');
 
-// Load environment variables from the .env file located in the parent directory.
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
-
-// Check if the environment is in development mode.
+// Check if the environment is in development mode
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..') });
-const handle = nextApp.getRequestHandler(); // Get request handler from the Next.js app.
+const handle = nextApp.getRequestHandler();
 
-// Create a new Express server instance.
+// Create a new Express server instance
 const app = express();
 
-// Enable CORS for requests coming from the frontend on port 3000
+// CORS options
 const corsOptions = {
-  origin: 'http://localhost:3000',
-  optionsSuccessStatus: 200
+  origin: [process.env.API_URL, 'https://tempo-scheduling-webapp1-1.vercel.app', 'http://localhost:5000'],
+  optionsSuccessStatus: 200,
 };
+
+// Enable CORS
 app.use(cors(corsOptions));
 
-// Async function to set up the server
+// Set up Clerk webhooks route before any body-parser middleware
+app.use('/webhooks/clerk', clerkWebhooks);
+
+// Setup middleware for body parsing (after Clerk webhook to avoid parsing raw body)
+app.use(bodyParser.json());
+app.use(bodyParser.raw({ type: 'application/json' }));
+
 const setupServer = async () => {
-  await nextApp.prepare(); // Prepare Next.js for handling requests
+  await nextApp.prepare();
   console.log('Next.js app prepared');
 
-  // Test database connection by querying the current timestamp.
-  try {
-    const res = await pool.query('SELECT NOW()');
-    console.log('Database connection successful. Current time:', res.rows[0].now);
-  } catch (err) {
-    console.error('Error connecting to the database:', err);
-  }
+  // Setup routes for the Express server
+  app.use('/api/users', userRoutes);
+  app.use('/api/schedule', scheduleRoutes);
 
-  // Setup routes for the Express server.
-  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
-  app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
-  app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
-
-  // Handle all other routes using Next.js's custom request handler.
+  // Handle all other routes with Next.js
   app.all('*', (req, res) => {
-    return handle(req, res); // For all other requests, use Next.js to handle routing
+    return handle(req, res);
   });
 
   return app;
@@ -71,4 +72,5 @@ if (require.main === module) {
 
 module.exports = setupServer;
 
-//taken help of chatgpt for connecting
+
+//Taken help of ChatGPT for connecting. Prompt: "Help me adapt this to the Supabase database"

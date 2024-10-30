@@ -5,7 +5,10 @@ import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function EmployeeProfile() {
@@ -34,33 +37,60 @@ export default function EmployeeProfile() {
   const fetchUserProfile = useCallback(async () => {
     try {
       const token = await getToken();
+      if (!token || !user) {
+        throw new Error('Authentication required');
+      }
+  
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
       });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch profile: ${response.status}`);
-      }
-
+  
       const data = await response.json();
-      setFirstName(data.firstName || '');
-      setLastName(data.lastName || '');
-      setEmail(data.email || '');
-      setPhone(data.phone || '');
-      setUsername(data.username || '');
-      // setAvailability(data.availability || {});
-      if (data.profileImageUrl) {
-        setProfileImagePreview(data.profileImageUrl);
-      }
       
-      setIsLoading(false);
+      if (response.ok && data) {
+        // Update state only if we have valid data
+        setFirstName(data.firstName || '');
+        setLastName(data.lastName || '');
+        setEmail(data.email || user.primaryEmailAddress?.emailAddress || '');
+        setPhone(data.phone || '');
+        setUsername(data.username || user.username || '');
+        setProfileImagePreview(data.profileImageUrl || user.profileImageUrl);
+      } else if (response.status === 404) {
+        // Handle new user creation
+        const createResponse = await fetch(`${apiUrl}/api/users/create`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            clerk_user_id: user.id,
+            email: user.primaryEmailAddress?.emailAddress,
+            username: user.username,
+            first_name: user.firstName,
+            last_name: user.lastName,
+          })
+        });
+  
+        if (createResponse.ok) {
+          const newUserData = await createResponse.json();
+          // Set initial data from the newly created user
+          setFirstName(newUserData.firstName || user.firstName || '');
+          setLastName(newUserData.lastName || user.lastName || '');
+          setEmail(newUserData.email || user.primaryEmailAddress?.emailAddress || '');
+          setUsername(newUserData.username || user.username || '');
+        }
+      }
     } catch (err) {
-      setError(`Failed to load profile: ${err.message}`);
+      console.error('Error loading profile:', err);
+      setError(err.message);
+    } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, user]);
+  
 
   useEffect(() => {
     if (isLoaded && getToken) {
@@ -76,22 +106,31 @@ export default function EmployeeProfile() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_FILE_SIZE) {
-        setError("File size exceeds 5MB limit, sorry");
+        setError("File size exceeds 5MB limit");
         return;
       }
       if (!file.type.startsWith('image/')) {
         setError("File must be an image");
         return;
       }
+      
       setProfileImage(file);
-      setProfileImagePreview(URL.createObjectURL(file));
+      
+      // Create and revoke object URL to prevent memory leaks
+      if (profileImagePreview && profileImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(profileImagePreview);
+      }
+      
+      const previewUrl = URL.createObjectURL(file);
+      setProfileImagePreview(previewUrl);
     }
   };
-
+  
   const handleProfileSubmit = async () => {
     try {
       setIsLoading(true);
       setError(null);
+  
       const token = await getToken();
       
       const formData = new FormData();
@@ -100,33 +139,43 @@ export default function EmployeeProfile() {
       formData.append('email', email);
       formData.append('phone', phone);
       formData.append('username', username);
-      // formData.append('availability', JSON.stringify(availability));
+  
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
-
+  
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
         body: formData
       });
-
-      const data = await response.json();
-
+  
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to update profile');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+  
+      const responseData = await response.json();
+      
+      if (responseData.profileImageUrl) {
+        setProfileImagePreview(responseData.profileImageUrl);
       }
       
-      setIsLoading(false);
+      setProfileImage(null); // Clear the selected file
       alert('Profile updated successfully');
-      fetchUserProfile();
+      
+      // Refresh the profile data
+      await fetchUserProfile();
     } catch (err) {
-      setError(err.message);
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile');
+    } finally {
       setIsLoading(false);
     }
   };
+  
 
   if (isLoading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
@@ -147,15 +196,18 @@ export default function EmployeeProfile() {
 
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
   <div className="w-10 h-10 relative overflow-hidden rounded-full">
-    <Image 
-      className="object-cover"
-      src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} 
-      alt="Profile image" 
-      layout="fill"
-      sizes="(max-width: 768px) 100vw,
-             (max-width: 1200px) 50vw,
-             33vw"
-    />
+  <Image
+  className="object-cover"
+  src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'}
+  alt="Profile image"
+  fill
+  style={{ objectFit: 'cover' }}
+  sizes="(max-width: 768px) 100vw,
+         (max-width: 1200px) 50vw,
+         33vw"
+/>
+
+
   </div>
   <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
 </button>
