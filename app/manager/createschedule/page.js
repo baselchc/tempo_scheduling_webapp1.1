@@ -5,32 +5,36 @@ import TimePicker from "react-time-picker";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-time-picker/dist/TimePicker.css";
 import "react-clock/dist/Clock.css";
-import axios from "axios";
-
-const apiUrl = 'http://localhost:5000'; // Backend URL
+import { supabase } from "../../../backend/database/supabaseClient";
 
 export default function CreateSchedulePage() {
   const [employees, setEmployees] = useState([]);
-  const [managerId, setManagerId] = useState('');
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
-  const [weekPeriod, setWeekPeriod] = useState('');
-  const [shiftStart, setShiftStart] = useState('');
-  const [shiftEnd, setShiftEnd] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
+  const [managerId, setManagerId] = useState("");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
+  const [weekPeriod, setWeekPeriod] = useState("");
+  const [shiftStart, setShiftStart] = useState("");
+  const [shiftEnd, setShiftEnd] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
 
   useEffect(() => {
     fetchEmployees();
   }, []);
 
+  // Fetch employees from Supabase 'users' table, including 'clerk_user_id'
   const fetchEmployees = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/api/employees/get-employees`);
-      setEmployees(response.data);
+      const { data, error } = await supabase
+        .from("users")
+        .select("clerk_user_id, first_name, last_name, email");
+
+      if (error) throw error;
+      setEmployees(data);
     } catch (error) {
-      console.error('Failed to fetch employees:', error);
+      console.error("Failed to fetch employees:", error);
     }
   };
 
+  // Auto-fill the shift end time based on shift start
   useEffect(() => {
     if (shiftStart) {
       const [hours, minutesPart] = shiftStart.split(":");
@@ -40,11 +44,14 @@ export default function CreateSchedulePage() {
       if (isPM && parsedHours !== 12) parsedHours += 12;
       if (!isPM && parsedHours === 12) parsedHours = 0;
       const endHour = parsedHours + 1;
-      const newEndTime = `${endHour > 12 ? endHour - 12 : endHour}:${minutes} ${endHour >= 12 ? "PM" : "AM"}`;
+      const newEndTime = `${endHour > 12 ? endHour - 12 : endHour}:${minutes} ${
+        endHour >= 12 ? "PM" : "AM"
+      }`;
       setShiftEnd(newEndTime);
     }
   }, [shiftStart]);
 
+  // Combine date and time for shift start and end
   const combineDateTime = (date, time) => {
     const [hours, minutesPart] = time.split(":");
     const minutes = minutesPart.split(" ")[0];
@@ -59,22 +66,23 @@ export default function CreateSchedulePage() {
     return combined.toISOString();
   };
 
+  // Handle form submission to create a shift in the 'my_shifts' table
   const handleSubmit = async (e) => {
     e.preventDefault();
     const scheduleData = {
-      manager_id: parseInt(managerId),
-      employee_id: selectedEmployeeId,
-      week_period: weekPeriod,
+      manager_id: parseInt(managerId), // Reintroduced manager_id field
+      user_id: selectedEmployeeId, // Set to clerk_user_id of selected employee
       shift_start: combineDateTime(weekPeriod, shiftStart),
       shift_end: combineDateTime(weekPeriod, shiftEnd),
     };
 
     try {
-      const response = await axios.post(`${apiUrl}/api/schedule/create-schedule`, scheduleData);
-      if (response.status === 200) {
-        setStatusMessage('Schedule created successfully!');
-      }
+      const { error } = await supabase.from("my_shifts").insert(scheduleData);
+
+      if (error) throw error;
+      setStatusMessage("Schedule created successfully!");
     } catch (error) {
+      console.error("Failed to create schedule:", error);
       setStatusMessage("Failed to create schedule");
     }
   };
@@ -91,7 +99,10 @@ export default function CreateSchedulePage() {
 
       <div className="container mx-auto mt-10 px-4">
         <h1 className="text-4xl font-bold mb-6 text-center text-black">Create Schedule</h1>
-        <form onSubmit={handleSubmit} className="space-y-6 bg-white bg-opacity-90 p-8 rounded-lg shadow-lg backdrop-blur-md">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-6 bg-white bg-opacity-90 p-8 rounded-lg shadow-lg backdrop-blur-md"
+        >
           {/* Manager ID Input */}
           <label className="block">
             <span className="text-lg font-semibold text-black">Enter Manager ID</span>
@@ -116,7 +127,7 @@ export default function CreateSchedulePage() {
             >
               <option value="">Select an employee</option>
               {employees.map((employee) => (
-                <option key={employee.id} value={employee.id}>
+                <option key={employee.clerk_user_id} value={employee.clerk_user_id}>
                   {employee.first_name} {employee.last_name} ({employee.email})
                 </option>
               ))}
@@ -173,4 +184,8 @@ export default function CreateSchedulePage() {
     </div>
   );
 }
+
+
+
+
 // chatgpt prompt for enhancing :Create a React component with useState and useEffect for scheduling shifts. Use axios to fetch employees (GET /api/employees/get-employees) and submit schedules (POST /api/schedule/create-schedule). Include date/time pickers, auto-fill shift end, and display success/failure messages. Style with Tailwind CSS.
