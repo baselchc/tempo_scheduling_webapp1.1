@@ -11,14 +11,20 @@ import Papa from 'papaparse'; // For CSV export
 import jsPDF from 'jspdf'; // For PDF export
 import html2canvas from 'html2canvas'; // For PDF export
 
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
+
 export default function SchedulePage() {
   const { signOut } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || '/images/default-avatar.png');
   const [selectedDate, setSelectedDate] = useState(null);
-  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false); // New state for weekly schedule view
+  const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
+  const { getToken } = useAuth();
   const [scheduleData] = useState([
     { date: "2024-10-02", shift: "9 AM - 5 PM", status: "Confirmed" },
     { date: "2024-10-03", shift: "10 AM - 6 PM", status: "Confirmed" },
@@ -27,19 +33,36 @@ export default function SchedulePage() {
     { date: "2024-10-06", shift: "1 PM - 9 PM", status: "Confirmed" },
     { date: "2024-10-07", shift: "9 AM - 5 PM", status: "Confirmed" },
     { date: "2024-10-08", shift: "8 AM - 4 PM", status: "Extra Shift" },
-    { date: "2024-10-09", shift: "9 AM - 5 PM", status: "Confirmed" },
-    { date: "2024-10-10", shift: "10 AM - 6 PM", status: "Confirmed" },
-    { date: "2024-10-11", shift: "11 AM - 7 PM", status: "Dropped" },
-    { date: "2024-10-12", shift: "12 PM - 8 PM", status: "Confirmed" },
   ]);
 
   const router = useRouter();
 
-  useEffect(() => {
-    if (!selectedDate) {
-      setSelectedDate(new Date());
+  // Fetch the profile image URL from the API
+  const fetchUserProfileImage = async () => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${apiUrl}/api/users/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+  
+      if (response.ok && data.profileImageUrl) {
+        const uniqueImageUrl = `${data.profileImageUrl}?t=${new Date().getTime()}`;
+        setProfileImageUrl(uniqueImageUrl);
+      }
+    } catch (error) {
+      console.error("Error fetching profile image:", error);
     }
-  }, [selectedDate]);
+  };
+  
+  useEffect(() => {
+    if (user) {
+      fetchUserProfileImage();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
@@ -102,10 +125,7 @@ export default function SchedulePage() {
     });
   };
 
-  // Function to show weekly schedule
-  const viewWeeklySchedule = () => {
-    setShowWeeklySchedule(true);
-  };
+  const viewWeeklySchedule = () => setShowWeeklySchedule(true);
 
   return (
     <div className="relative min-h-screen text-black font-arial">
@@ -131,7 +151,7 @@ export default function SchedulePage() {
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'}
+            src={profileImageUrl}
             alt="Profile image"
             width={40}
             height={40}
@@ -191,14 +211,13 @@ export default function SchedulePage() {
 
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <table id="schedule-table" className="min-w-full bg-transparent">
-          <thead className="bg-white bg-opacity-20 text-white">
-            <tr>
-              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Date</th>
-              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Shift</th>
-              <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Status</th>
-            </tr>
-          </thead>
-
+            <thead className="bg-white bg-opacity-20 text-white">
+              <tr>
+                <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Date</th>
+                <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Shift</th>
+                <th className="px-6 py-3 text-left font-medium" style={{ fontSize: '1.5rem' }}>Status</th>
+              </tr>
+            </thead>
             <tbody>
               {filteredSchedule.length > 0 ? (
                 filteredSchedule.map((item, index) => (
@@ -244,4 +263,5 @@ export default function SchedulePage() {
     </div>
   );
 }
+
 //code enhanced with help of chatgpt4 and prompt was Develop a Next.js schedule management page that includes user authentication, profile actions, notifications, and a feature to toggle between daily and weekly views. Ensure the component can export data in both CSV and PDF formats and incorporates dynamic interactions for an enhanced user experience."

@@ -8,49 +8,71 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { supabase } from '../../../backend/database/supabaseClient';
 
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
+
 export default function OpenShiftsPage() {
   const { signOut } = useAuth();
-  const { user } = useUser(); // This user object includes clerk_user_id
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || '/images/default-avatar.png');
   const [openShifts, setOpenShifts] = useState([]);
   const [myShifts, setMyShifts] = useState([]);
+  
   const router = useRouter();
 
-  // Centralized function to fetch shifts and update the state
- // Updated fetchShifts function
-const fetchShifts = useCallback(async () => {
-  if (!user) return;
+  // Fetch the profile image URL from the API
+  const fetchUserProfileImage = async () => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${apiUrl}/api/users/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
 
-  try {
-    // Fetch available shifts from Supabase
-    const { data: availableShifts, error: availableError } = await supabase
-      .from('available_shifts')
-      .select('*');
-    
-    if (availableError) throw availableError;
-    setOpenShifts(availableShifts);
+      if (response.ok && data.profileImageUrl) {
+        const uniqueImageUrl = `${data.profileImageUrl}?t=${new Date().getTime()}`;
+        setProfileImageUrl(uniqueImageUrl);
+      }
+    } catch (error) {
+      console.error("Error fetching profile image:", error);
+    }
+  };
 
-    // Fetch user's shifts using Clerk's userId from Supabase
-    const { data: myShifts, error: myShiftsError } = await supabase
-      .from('my_shifts')
-      .select('*')
-      .eq('user_id', user.id);
-    
-    if (myShiftsError) throw myShiftsError;
-    setMyShifts(myShifts);
-  } catch (error) {
-    console.error('Error fetching shifts:', error);
-  }
-}, [user]);
-
-  // Initial load or when the user changes
   useEffect(() => {
     if (user) {
+      fetchUserProfileImage();
       fetchShifts();
     }
-  }, [user, fetchShifts]);
+  }, [user]);
+
+  const fetchShifts = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data: availableShifts, error: availableError } = await supabase
+        .from('available_shifts')
+        .select('*');
+      if (availableError) throw availableError;
+      setOpenShifts(availableShifts);
+
+      const { data: myShifts, error: myShiftsError } = await supabase
+        .from('my_shifts')
+        .select('*')
+        .eq('user_id', user.id);
+      if (myShiftsError) throw myShiftsError;
+      setMyShifts(myShifts);
+    } catch (error) {
+      console.error('Error fetching shifts:', error);
+    }
+  }, [user]);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
@@ -59,33 +81,21 @@ const fetchShifts = useCallback(async () => {
   const takeShift = async (shiftId) => {
     const shift = openShifts.find((s) => s.id === shiftId);
     if (!shift) return;
-  
-    console.log("Shift data to insert:", { ...shift, user_id: user.id });
-  
+
     try {
-      // Move shift from available_shifts to my_shifts in Supabase
       const { error: insertError } = await supabase
         .from('my_shifts')
         .insert({ ...shift, user_id: user.id });
-  
-      if (insertError) {
-        console.error("Supabase insert error:", insertError);
-        throw insertError;
-      }
-  
-      // Remove shift from available_shifts
+      if (insertError) throw insertError;
+
       const { error: deleteError } = await supabase
         .from('available_shifts')
         .delete()
         .eq('id', shift.id);
-  
-      if (deleteError) {
-        console.error("Supabase delete error:", deleteError);
-        throw deleteError;
-      }
-  
-      alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-      fetchShifts(); // Fetch updated shifts after taking a shift
+      if (deleteError) throw deleteError;
+
+      alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}`);
+      fetchShifts();
     } catch (error) {
       console.error("Error taking shift:", error);
     }
@@ -94,44 +104,35 @@ const fetchShifts = useCallback(async () => {
   const dropShift = async (shiftId) => {
     const shift = myShifts.find((s) => s.id === shiftId);
     if (!shift) return;
-  
+
     try {
-      // Move shift back to available_shifts
       const { error: insertError } = await supabase
         .from('available_shifts')
         .insert({ ...shift, reason: shift.reason || 'No reason provided' });
-  
       if (insertError) throw insertError;
-  
-      // Remove shift from schedules
+
       const { error: deleteError } = await supabase
         .from('my_shifts')
         .delete()
         .eq('id', shift.id);
-  
       if (deleteError) throw deleteError;
-  
-      alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-      fetchShifts(); // Fetch updated shifts after dropping a shift
+
+      alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}`);
+      fetchShifts();
     } catch (error) {
       console.error("Error dropping shift:", error);
     }
   };
-  
 
   return (
     <div className="relative min-h-screen text-black">
-      {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
-        style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
-        }}
+        style={{ backgroundImage: `url('/images/loginpagebackground.webp')` }}
       ></div>
-      {/* Navigation Bar */}
+
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-      {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
         <button onClick={toggleNotifications} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
@@ -145,7 +146,7 @@ const fetchShifts = useCallback(async () => {
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'}
+            src={profileImageUrl}
             alt="Profile image"
             width={40}
             height={40}
@@ -166,11 +167,9 @@ const fetchShifts = useCallback(async () => {
         )}
       </div>
 
-      {/* Main content space */}
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">Open Shifts</h1>
 
-        {/* Open Shifts Section */}
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">Available Shifts</h2>
           <table className="min-w-full bg-transparent">
@@ -210,7 +209,6 @@ const fetchShifts = useCallback(async () => {
           </table>
         </div>
 
-        {/* My Shifts Section */}
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">My Shifts</h2>
           <table className="min-w-full bg-transparent">
