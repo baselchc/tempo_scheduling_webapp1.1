@@ -283,3 +283,5 @@ export default function EmployeeProfile() {
 Used Claude AI to assit with creation of the page, "List the steps to Allow users to view and edit their profile information"
 Which allowed for referencing and learning while creating this page
 */
+
+/* ChatGPT 4o used to migrate to the Supabase database, prompt was: "Help me integrate this page with my supabase database" */
