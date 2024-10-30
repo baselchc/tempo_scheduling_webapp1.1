@@ -91,6 +91,7 @@ export default function EmployeeProfile() {
 
       setProfileImage(file);
 
+      // Create an immediate preview of the selected image without saving
       if (profileImagePreview && profileImagePreview.startsWith('blob:')) {
         URL.revokeObjectURL(profileImagePreview); // Revoke old blob URL
       }
@@ -135,7 +136,9 @@ export default function EmployeeProfile() {
 
       if (responseData.user && responseData.user.profileImageUrl) {
         // Update image URL and add a cache-busting timestamp
-        setProfileImagePreview(`${responseData.user.profileImageUrl}?t=${new Date().getTime()}`);
+        const uniqueImageUrl = `${responseData.user.profileImageUrl}?t=${new Date().getTime()}`;
+        setProfileImagePreview(uniqueImageUrl);
+        setProfileImageVersion(new Date().getTime());
       }
 
       setProfileImage(null); // Clear the selected file
@@ -213,7 +216,7 @@ export default function EmployeeProfile() {
               <div className="flex items-start space-x-4">
                 <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
                   <Image
-                    key={profileImageVersion} // Using unique key to force reload
+                    key={profileImageVersion} // Using unique key for reload
                     src={`${profileImagePreview}?t=${profileImageVersion}`}
                     alt="Profile Preview"
                     layout="fill"
