@@ -216,7 +216,7 @@ export default function EmployeeProfile() {
               <div className="flex items-start space-x-4">
                 <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
                   <Image
-                    key={profileImageVersion} // Using unique key for reload
+                    key={profileImageVersion} 
                     src={`${profileImagePreview}?t=${profileImageVersion}`}
                     alt="Profile Preview"
                     layout="fill"
