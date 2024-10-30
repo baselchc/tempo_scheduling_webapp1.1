@@ -28,9 +28,8 @@ export default function EmployeeProfile() {
   const [username, setUsername] = useState('');
 
   const [profileImage, setProfileImage] = useState(null);
-  const [profileImagePreview, setProfileImagePreview] = useState(null);
-
-  // const [availability, setAvailability] = useState({});
+  const [profileImagePreview, setProfileImagePreview] = useState('/images/default-avatar.png');
+  const [profileImageVersion, setProfileImageVersion] = useState(new Date().getTime());
 
   const router = useRouter();
 
@@ -40,48 +39,25 @@ export default function EmployeeProfile() {
       if (!token || !user) {
         throw new Error('Authentication required');
       }
-  
+
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         },
       });
-  
+
       const data = await response.json();
-      
+
       if (response.ok && data) {
-        // Update state only if we have valid data
         setFirstName(data.firstName || '');
         setLastName(data.lastName || '');
         setEmail(data.email || user.primaryEmailAddress?.emailAddress || '');
         setPhone(data.phone || '');
         setUsername(data.username || user.username || '');
-        setProfileImagePreview(data.profileImageUrl || user.profileImageUrl);
-      } else if (response.status === 404) {
-        // Handle new user creation
-        const createResponse = await fetch(`${apiUrl}/api/users/create`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            clerk_user_id: user.id,
-            email: user.primaryEmailAddress?.emailAddress,
-            username: user.username,
-            first_name: user.firstName,
-            last_name: user.lastName,
-          })
-        });
-  
-        if (createResponse.ok) {
-          const newUserData = await createResponse.json();
-          // Set initial data from the newly created user
-          setFirstName(newUserData.firstName || user.firstName || '');
-          setLastName(newUserData.lastName || user.lastName || '');
-          setEmail(newUserData.email || user.primaryEmailAddress?.emailAddress || '');
-          setUsername(newUserData.username || user.username || '');
-        }
+
+        // Set profile image preview to the public URL returned from backend
+        setProfileImagePreview(data.profileImageUrl || '/images/default-avatar.png');
+        setProfileImageVersion(new Date().getTime());
       }
     } catch (err) {
       console.error('Error loading profile:', err);
@@ -90,7 +66,6 @@ export default function EmployeeProfile() {
       setIsLoading(false);
     }
   }, [getToken, user]);
-  
 
   useEffect(() => {
     if (isLoaded && getToken) {
@@ -113,37 +88,36 @@ export default function EmployeeProfile() {
         setError("File must be an image");
         return;
       }
-      
+
       setProfileImage(file);
-      
-      // Create and revoke object URL to prevent memory leaks
+
       if (profileImagePreview && profileImagePreview.startsWith('blob:')) {
-        URL.revokeObjectURL(profileImagePreview);
+        URL.revokeObjectURL(profileImagePreview); // Revoke old blob URL
       }
-      
+
       const previewUrl = URL.createObjectURL(file);
-      setProfileImagePreview(previewUrl);
+      setProfileImagePreview(previewUrl); // Set new preview URL
     }
   };
-  
+
   const handleProfileSubmit = async () => {
     try {
       setIsLoading(true);
       setError(null);
-  
+
       const token = await getToken();
-      
+
       const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('email', email);
       formData.append('phone', phone);
       formData.append('username', username);
-  
+
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
-  
+
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
@@ -151,21 +125,22 @@ export default function EmployeeProfile() {
         },
         body: formData
       });
-  
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
         throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-  
+
       const responseData = await response.json();
-      
-      if (responseData.profileImageUrl) {
-        setProfileImagePreview(responseData.profileImageUrl);
+
+      if (responseData.user && responseData.user.profileImageUrl) {
+        // Update image URL and add a cache-busting timestamp
+        setProfileImagePreview(`${responseData.user.profileImageUrl}?t=${new Date().getTime()}`);
       }
-      
+
       setProfileImage(null); // Clear the selected file
       alert('Profile updated successfully');
-      
+
       // Refresh the profile data
       await fetchUserProfile();
     } catch (err) {
@@ -175,18 +150,17 @@ export default function EmployeeProfile() {
       setIsLoading(false);
     }
   };
-  
 
   if (isLoading) return <div className="flex justify-center items-center h-screen">Loading...</div>;
 
   return (
     <div className="relative min-h-screen text-black">
       <Image
-          src="/images/loginpagebackground.webp" // Ensure this path is correct
-          alt="Background"
-          layout="fill" // Use fill layout to cover the parent div
-          objectFit="cover" // Cover the entire area
-          className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl" // Add blur class here
+        src="/images/loginpagebackground.webp"
+        alt="Background"
+        layout="fill"
+        objectFit="cover"
+        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
       />
 
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
@@ -195,22 +169,19 @@ export default function EmployeeProfile() {
         <button onClick={toggleNotifications} className="relative"></button>
 
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
-  <div className="w-10 h-10 relative overflow-hidden rounded-full">
-  <Image
-  className="object-cover"
-  src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'}
-  alt="Profile image"
-  fill
-  style={{ objectFit: 'cover' }}
-  sizes="(max-width: 768px) 100vw,
-         (max-width: 1200px) 50vw,
-         33vw"
-/>
-
-
-  </div>
-  <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
-</button>
+          <div className="w-10 h-10 relative overflow-hidden rounded-full">
+            <Image
+              key={profileImageVersion} // Using unique key to trigger reload
+              src={`${profileImagePreview}?t=${profileImageVersion}`}
+              alt="Profile image"
+              fill
+              onError={() => setProfileImagePreview('/images/default-avatar.png')}
+              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          </div>
+          <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
+        </button>
         {profileMenuOpen && (
           <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
             <ul>
@@ -234,74 +205,76 @@ export default function EmployeeProfile() {
           </div>
         )}
 
-<div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
-  <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
-  <div className="space-y-4">
-    <div className="mb-4">
-      <label className="block mb-2 text-white">Profile Image:</label>
-      <div className="flex items-start space-x-4">
-        <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
-          <Image
-            src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'}
-            alt="Profile Preview"
-            layout="fill"
-            objectFit="cover"
-          />
+        <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
+          <h2 className="text-2xl font-semibold mb-4 text-white">Personal Information</h2>
+          <div className="space-y-4">
+            <div className="mb-4">
+              <label className="block mb-2 text-white">Profile Image:</label>
+              <div className="flex items-start space-x-4">
+                <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
+                  <Image
+                    key={profileImageVersion} // Using unique key to force reload
+                    src={`${profileImagePreview}?t=${profileImageVersion}`}
+                    alt="Profile Preview"
+                    layout="fill"
+                    objectFit="cover"
+                  />
+                </div>
+                <div className="flex-grow">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfileImageChange}
+                    className="text-sm text-white
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-blue-50 file:text-black
+                      hover:file:bg-blue-100"
+                  />
+                  <p className="mt-2 text-sm text-gray-300">
+                    Max file size: 5MB. Supported formats: JPEG, PNG, GIF.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block mb-1 text-white">First Name:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1 text-white">Last Name:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1 text-white">Email:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1 text-white">Phone:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </div>
+            <div>
+              <label className="block mb-1 text-white">Username:</label>
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+            </div>
+          </div>
         </div>
-        <div className="flex-grow">
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleProfileImageChange}
-            className="text-sm text-white
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-full file:border-0
-              file:text-sm file:font-semibold
-              file:bg-blue-50 file:text-black
-              hover:file:bg-blue-100"
-          />
-          <p className="mt-2 text-sm text-gray-300">
-            Max file size: 5MB. Supported formats: JPEG, PNG, GIF.
-          </p>
+
+        <div className="mt-8 text-center">
+          <button
+            className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg transition duration-300 ease-in-out text-lg font-semibold"
+            onClick={handleProfileSubmit}
+            disabled={isLoading}
+          >
+            {isLoading ? 'Saving...' : 'Save Profile'}
+          </button>
         </div>
       </div>
     </div>
-    <div>
-      <label className="block mb-1 text-white">First Name:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Last Name:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Email:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Phone:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-    </div>
-    <div>
-      <label className="block mb-1 text-white">Username:</label>
-      <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
-    </div>
-  </div>
-</div>
-
-<div className="mt-8 text-center">
-  <button
-    className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg transition duration-300 ease-in-out text-lg font-semibold"
-    onClick={handleProfileSubmit}
-    disabled={isLoading}
-  >
-    {isLoading ? 'Saving...' : 'Save Profile'}
-  </button>
-    </div>
-  </div>
-</div>
   );
 }
+
 
 /* 
 Used Claude AI to assit with creation of the page, "List the steps to Allow users to view and edit their profile information"

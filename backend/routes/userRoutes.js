@@ -29,6 +29,20 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Generate public URL for profile image if it exists
+    let profileImageUrl = null;
+    if (user.profile_image) {
+      const { data: publicUrlData, error: urlError } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(`public/${userId}.jpg`);
+
+      if (urlError) {
+        console.error("Error fetching public URL for image:", urlError);
+      } else {
+        profileImageUrl = publicUrlData.publicUrl;
+      }
+    }
+
     // Construct the user data response
     const userData = {
       firstName: user.first_name,
@@ -37,12 +51,8 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       phone: user.phone,
       username: user.username,
       role: user.role,
-      profileImageUrl: user.profile_image 
-        ? `data:image/jpeg;base64,${Buffer.from(user.profile_image).toString('base64')}` 
-        : null,
+      profileImageUrl: profileImageUrl,
     };
-    
-    
 
     res.json(userData);
   } catch (error) {
@@ -59,19 +69,42 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
   console.log("Request to update profile for user:", userId);
   console.log("Received data:", { firstName, lastName, email, phone, username });
 
-  // Check if required fields are present
   if (!firstName || !lastName || !email) {
     console.error("Missing required fields in profile update.");
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
-    let imageData = null;
+    let profileImageUrl = null;
+
+    // Upload the profile image to Supabase Storage if present
     if (req.file) {
-      imageData = req.file.buffer;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(`public/${userId}.jpg`, req.file.buffer, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: req.file.mimetype,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading image to Supabase Storage:', uploadError);
+        return res.status(500).json({ error: 'Failed to upload profile image' });
+      }
+
+      // Generate public URL for the uploaded profile image
+      const { data: publicUrlData, error: urlError } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(`public/${userId}.jpg`);
+
+      if (urlError) {
+        console.error("Error fetching public URL for image:", urlError);
+      } else {
+        profileImageUrl = publicUrlData.publicUrl;
+      }
     }
 
-    // Attempt to update user profile in Supabase
+    // Update the user's profile information in Supabase
     const { data, error } = await supabase
       .from('users')
       .update({
@@ -80,16 +113,12 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
         email,
         phone,
         username,
-        profile_image: imageData || null,
+        profile_image: profileImageUrl ? Buffer.from(profileImageUrl) : null,
       })
       .eq('clerk_user_id', userId)
-      .select('*')  // Ensure data is returned after update
+      .select('*')
       .single();
 
-    console.log("Supabase response data:", data);
-    console.error("Supabase response error:", error);
-
-    // Check if data was returned, otherwise throw an error
     if (error || !data) {
       console.error("User not found or failed to update:", error);
       return res.status(404).json({ error: 'User not found or failed to update' });
@@ -98,15 +127,14 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
     const responseData = {
       message: 'Profile updated successfully',
       user: {
-      firstName: data.first_name,
-      lastName: data.last_name,
-      email: data.email,
-      phone: data.phone,
-      username: data.username,
-      profileImageUrl: data.profile_image ? `data:image/jpeg;base64,${Buffer.from(data.profile_image).toString('base64')}` : null,
+        firstName: data.first_name,
+        lastName: data.last_name,
+        email: data.email,
+        phone: data.phone,
+        username: data.username,
+        profileImageUrl: profileImageUrl,
       },
-  };
-
+    };
 
     res.json(responseData);
   } catch (error) {
@@ -114,7 +142,6 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
-
 
 // PUT route to update user role
 router.put('/role', ClerkExpressWithAuth(), async (req, res) => {
