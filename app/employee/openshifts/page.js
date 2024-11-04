@@ -6,42 +6,73 @@ import NavBar from "../components/NavBar";
 import { Notifications } from "@mui/icons-material";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { supabase } from '../../../backend/database/supabaseClient';
+
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
 
 export default function OpenShiftsPage() {
   const { signOut } = useAuth();
-  const { user } = useUser(); // This user object includes clerk_user_id
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState(user?.profileImageUrl || '/images/default-avatar.png');
   const [openShifts, setOpenShifts] = useState([]);
   const [myShifts, setMyShifts] = useState([]);
+  
   const router = useRouter();
 
-  // Centralized function to fetch shifts and update the state
+  // Fetch the profile image URL from the API
+  const fetchUserProfileImage = async () => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${apiUrl}/api/users/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+
+      if (response.ok && data.profileImageUrl) {
+        const uniqueImageUrl = `${data.profileImageUrl}?t=${new Date().getTime()}`;
+        setProfileImageUrl(uniqueImageUrl);
+      }
+    } catch (error) {
+      console.error("Error fetching profile image:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfileImage();
+      fetchShifts();
+    }
+  }, [user]);
+
   const fetchShifts = useCallback(async () => {
     if (!user) return;
 
     try {
-      // Fetch available shifts
-      const availableRes = await fetch('/api/shifts?type=available');
-      const availableShifts = await availableRes.json();
+      const { data: availableShifts, error: availableError } = await supabase
+        .from('available_shifts')
+        .select('*');
+      if (availableError) throw availableError;
       setOpenShifts(availableShifts);
 
-      // Fetch my shifts using Clerk's userId
-      const myShiftsRes = await fetch(`/api/shifts?type=my&userId=${user.id}`);
-      const myShifts = await myShiftsRes.json();
+      const { data: myShifts, error: myShiftsError } = await supabase
+        .from('my_shifts')
+        .select('*')
+        .eq('user_id', user.id);
+      if (myShiftsError) throw myShiftsError;
       setMyShifts(myShifts);
     } catch (error) {
       console.error('Error fetching shifts:', error);
     }
   }, [user]);
-
-  // Initial load or when the user changes
-  useEffect(() => {
-    if (user) {
-      fetchShifts();
-    }
-  }, [user, fetchShifts]);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
@@ -52,26 +83,21 @@ export default function OpenShiftsPage() {
     if (!shift) return;
 
     try {
-      const res = await fetch("/api/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-          action: "take",
-          userId: user.id, // Use Clerk userId here
-        }),
-      });
+      const { error: insertError } = await supabase
+        .from('my_shifts')
+        .insert({ ...shift, user_id: user.id });
+      if (insertError) throw insertError;
 
-      if (res.ok) {
-        alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-        fetchShifts(); // Fetch updated shifts after taking a shift
-      } else {
-        console.error("Error taking shift");
-      }
+      const { error: deleteError } = await supabase
+        .from('available_shifts')
+        .delete()
+        .eq('id', shift.id);
+      if (deleteError) throw deleteError;
+
+      alert(`You have taken the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}`);
+      fetchShifts();
     } catch (error) {
-      console.error("Error updating shift:", error);
+      console.error("Error taking shift:", error);
     }
   };
 
@@ -80,25 +106,19 @@ export default function OpenShiftsPage() {
     if (!shift) return;
 
     try {
-      const res = await fetch("/api/update", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          shiftId: shift.id,
-          action: "drop",
-          userId: user.id, // Use Clerk userId here
-          reason: shift.reason // Include the reason for dropping the shift
-        }),
-      });
+      const { error: insertError } = await supabase
+        .from('available_shifts')
+        .insert({ ...shift, reason: shift.reason || 'No reason provided' });
+      if (insertError) throw insertError;
 
-      if (res.ok) {
-        alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}, ${new Date(shift.shift_start).toLocaleTimeString('en-US')}.`);
-        fetchShifts(); // Fetch updated shifts after dropping a shift
-      } else {
-        console.error("Error dropping shift");
-      }
+      const { error: deleteError } = await supabase
+        .from('my_shifts')
+        .delete()
+        .eq('id', shift.id);
+      if (deleteError) throw deleteError;
+
+      alert(`You have dropped the shift on ${new Date(shift.shift_start).toLocaleDateString('en-US')}`);
+      fetchShifts();
     } catch (error) {
       console.error("Error dropping shift:", error);
     }
@@ -106,17 +126,13 @@ export default function OpenShiftsPage() {
 
   return (
     <div className="relative min-h-screen text-black">
-      {/* Blurred background image */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
-        style={{
-          backgroundImage: `url('/images/loginpagebackground.webp')`,
-        }}
+        style={{ backgroundImage: `url('/images/loginpagebackground.webp')` }}
       ></div>
-      {/* Navigation Bar */}
+
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-      {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
         <button onClick={toggleNotifications} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
@@ -130,7 +146,7 @@ export default function OpenShiftsPage() {
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'}
+            src={profileImageUrl}
             alt="Profile image"
             width={40}
             height={40}
@@ -151,11 +167,9 @@ export default function OpenShiftsPage() {
         )}
       </div>
 
-      {/* Main content space */}
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         <h1 className="text-4xl font-bold text-center text-white mb-8">Open Shifts</h1>
 
-        {/* Open Shifts Section */}
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">Available Shifts</h2>
           <table className="min-w-full bg-transparent">
@@ -195,7 +209,6 @@ export default function OpenShiftsPage() {
           </table>
         </div>
 
-        {/* My Shifts Section */}
         <div className="mt-8 bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white">
           <h2 className="text-2xl font-semibold mb-4 text-white">My Shifts</h2>
           <table className="min-w-full bg-transparent">

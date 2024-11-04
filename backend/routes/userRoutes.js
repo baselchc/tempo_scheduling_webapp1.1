@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
-const db = require('../database/db');
-const checkRole = require('../middleware/checkRole');
+const { supabase } = require('../database/supabaseClient');
 
+// Configure multer for file upload
 const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB file size limit
@@ -15,36 +15,44 @@ const upload = multer({
 router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
   const userId = req.auth.userId;
   console.log('Fetching profile for user:', userId);
- 
+
   try {
-    const userQuery = 'SELECT first_name, last_name, email, phone, username, profile_image, role FROM users WHERE clerk_user_id = $1';
-    const { rows } = await db.query(userQuery, [userId]);
-    if (rows.length === 0) {
-      console.log('User not found in database');
+    // Fetch user profile from Supabase
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('first_name, last_name, email, phone, username, profile_image, role')
+      .eq('clerk_user_id', userId)
+      .single();
+
+    if (error || !user) {
+      console.error('User not found or error fetching user:', error);
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // const availabilityQuery = 'SELECT day_of_week, status FROM availability WHERE user_id = (SELECT id FROM users WHERE clerk_user_id = $1)';
-    // const availabilityResult = await db.query(availabilityQuery, [userId]);
+    // Generate public URL for profile image if it exists
+    let profileImageUrl = null;
+    if (user.profile_image) {
+      const { data: publicUrlData, error: urlError } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(`public/${userId}.jpg`);
 
-    // const availability = {};
-    // availabilityResult.rows.forEach(row => {
-    //   availability[row.day_of_week] = row.status;
-    // });
-
-    const userData = {
-      firstName: rows[0].first_name,
-      lastName: rows[0].last_name,
-      email: rows[0].email,
-      phone: rows[0].phone,
-      username: rows[0].username,
-      role: rows[0].role
-      // availability
-    };
-
-    if (rows[0].profile_image) {
-      userData.profileImageUrl = `data:image/jpeg;base64,${rows[0].profile_image.toString('base64')}`;
+      if (urlError) {
+        console.error("Error fetching public URL for image:", urlError);
+      } else {
+        profileImageUrl = publicUrlData.publicUrl;
+      }
     }
+
+    // Construct the user data response
+    const userData = {
+      firstName: user.first_name,
+      lastName: user.last_name,
+      email: user.email,
+      phone: user.phone,
+      username: user.username,
+      role: user.role,
+      profileImageUrl: profileImageUrl,
+    };
 
     res.json(userData);
   } catch (error) {
@@ -58,92 +66,101 @@ router.put('/profile', ClerkExpressWithAuth(), upload.single('profileImage'), as
   const { firstName, lastName, email, phone, username } = req.body;
   const userId = req.auth.userId;
 
-  // console.log('Received availability data:', req.body.availability);
+  console.log("Request to update profile for user:", userId);
+  console.log("Received data:", { firstName, lastName, email, phone, username });
 
   if (!firstName || !lastName || !email) {
+    console.error("Missing required fields in profile update.");
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
   try {
-    await db.query('BEGIN');
+    let profileImageUrl = null;
 
-    let imageData = null;
+    // Upload the profile image to Supabase Storage if present
     if (req.file) {
-      imageData = req.file.buffer;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(`public/${userId}.jpg`, req.file.buffer, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: req.file.mimetype,
+        });
+
+      if (uploadError) {
+        console.error('Error uploading image to Supabase Storage:', uploadError);
+        return res.status(500).json({ error: 'Failed to upload profile image' });
+      }
+
+      // Generate public URL for the uploaded profile image
+      const { data: publicUrlData, error: urlError } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(`public/${userId}.jpg`);
+
+      if (urlError) {
+        console.error("Error fetching public URL for image:", urlError);
+      } else {
+        profileImageUrl = publicUrlData.publicUrl;
+      }
     }
 
-    const updateQuery = `
-      UPDATE users
-      SET first_name = $1, last_name = $2, email = $3, phone = $4, username = $5, profile_image = COALESCE($6, profile_image)
-      WHERE clerk_user_id = $7
-      RETURNING *
-    `;
-    const updateResult = await db.query(updateQuery, [firstName, lastName, email, phone, username, imageData, userId]);
+    // Update the user's profile information in Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        email,
+        phone,
+        username,
+        profile_image: profileImageUrl ? Buffer.from(profileImageUrl) : null,
+      })
+      .eq('clerk_user_id', userId)
+      .select('*')
+      .single();
 
-    if (updateResult.rows.length === 0) {
-      await db.query('ROLLBACK');
-      return res.status(404).json({ error: 'User not found' });
+    if (error || !data) {
+      console.error("User not found or failed to update:", error);
+      return res.status(404).json({ error: 'User not found or failed to update' });
     }
 
-    // if (availability) {
-    //   const parsedAvailability = typeof availability === 'string' ? JSON.parse(availability) : availability;
-
-    //   for (const day of VALID_DAYS) {
-    //     const status = parsedAvailability[day];
-    //     if (!status || !VALID_STATUSES.includes(status)) {
-    //       await db.query('ROLLBACK');
-    //       return res.status(400).json({ error: `Invalid availability data for day: ${day}` });
-    //     }
-
-    //     await db.query(
-    //       'INSERT INTO availability (user_id, day_of_week, status) VALUES ((SELECT id FROM users WHERE clerk_user_id = $1), $2, $3) ON CONFLICT (user_id, day_of_week) DO UPDATE SET status = $3',
-    //       [userId, day, status]
-    //     );
-    //   }
-    // }
-
-    await db.query('COMMIT');
-
-    const updatedUser = updateResult.rows[0];
     const responseData = {
       message: 'Profile updated successfully',
       user: {
-        firstName: updatedUser.first_name,
-        lastName: updatedUser.last_name,
-        email: updatedUser.email,
-        phone: updatedUser.phone,
-        username: updatedUser.username,
-      }
+        firstName: data.first_name,
+        lastName: data.last_name,
+        email: data.email,
+        phone: data.phone,
+        username: data.username,
+        profileImageUrl: profileImageUrl,
+      },
     };
 
-    if (updatedUser.profile_image) {
-      responseData.user.profileImageUrl = `data:image/jpeg;base64,${updatedUser.profile_image.toString('base64')}`;
-    }
-    
-    res.json({ message: 'Profile updated successfully', user: updateResult.rows[0] });
+    res.json(responseData);
   } catch (error) {
-    await db.query('ROLLBACK');
     console.error('Error updating profile:', error);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
 // PUT route to update user role
-router.put('/role', ClerkExpressWithAuth(), checkRole(['admin']),async (req, res) => {
+router.put('/role', ClerkExpressWithAuth(), async (req, res) => {
   const { userId, newRole } = req.body;
 
   try {
-    // Update the user's role
-    const updateResult = await db.query(
-      'UPDATE users SET role = $1 WHERE clerk_user_id = $2 RETURNING *',
-      [newRole, userId]
-    );
+    // Update the user's role in Supabase
+    const { data, error } = await supabase
+      .from('users')
+      .update({ role: newRole })
+      .eq('clerk_user_id', userId)
+      .single();
 
-    if (updateResult.rows.length === 0) {
-      return res.status(404).json({ error: 'User not found' });
+    if (error || !data) {
+      console.error('Error updating user role:', error);
+      return res.status(404).json({ error: 'User not found or failed to update role' });
     }
 
-    res.json({ message: 'Role updated successfully', user: updateResult.rows[0] });
+    res.json({ message: 'Role updated successfully', user: data });
   } catch (error) {
     console.error('Error updating user role:', error);
     res.status(500).json({ error: 'Failed to update user role' });
@@ -152,4 +169,6 @@ router.put('/role', ClerkExpressWithAuth(), checkRole(['admin']),async (req, res
 
 module.exports = router;
 
-//chatGPT used
+ {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
+  add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
+  tab and allow a view of Available Shifts and Open Shifts.*/}
