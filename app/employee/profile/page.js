@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import AvailabilitySection from '../components/AvailabilitySection';
 
 const apiUrl = process.env.NODE_ENV === 'production'
   ? 'https://tempo-scheduling-webapp1-1.vercel.app'
@@ -26,6 +27,7 @@ export default function EmployeeProfile() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
+  const [availability, setAvailability] = useState({});
 
   const [profileImage, setProfileImage] = useState(null);
   const [profileImagePreview, setProfileImagePreview] = useState('/images/default-avatar.png');
@@ -101,6 +103,28 @@ export default function EmployeeProfile() {
     }
   };
 
+  const handleAvailabilityChange = async (newAvailability) => {
+    try {
+      const token = await getToken();
+      const response = await fetch(`${apiUrl}/api/users/availability`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ availability: newAvailability })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update availability');
+      }
+
+      setAvailability(newAvailability);
+    } catch (error) {
+      setError(error.message);
+    }
+  };
+
   const handleProfileSubmit = async () => {
     try {
       setIsLoading(true);
@@ -114,11 +138,10 @@ export default function EmployeeProfile() {
       formData.append('email', email);
       formData.append('phone', phone);
       formData.append('username', username);
-
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
-
+  
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
