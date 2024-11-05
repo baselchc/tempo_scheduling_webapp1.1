@@ -1,40 +1,48 @@
 const express = require('express');
 const next = require('next');
 const path = require('path');
-const cors = require('cors');  // Import CORS
+const cors = require('cors');
 const bodyParser = require('body-parser');
+const errorHandler = require('./middleware/errorHandler');
 
-// Import route handlers and database configuration.
+// Import route handlers and database configuration
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
 const { pool } = require('./database/db');
 
-// Load environment variables from the .env file located in the parent directory.
+// Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
 
-// Check if the environment is in development mode.
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..') });
-const handle = nextApp.getRequestHandler(); // Get request handler from the Next.js app.
+const handle = nextApp.getRequestHandler();
 
-// Create a new Express server instance.
-const app = express();
-
-// Enable CORS for requests coming from the frontend on port 3000
-const corsOptions = {
-  origin: 'http://localhost:3000',
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-
-// Async function to set up the server
 const setupServer = async () => {
-  await nextApp.prepare(); // Prepare Next.js for handling requests
+  await nextApp.prepare();
   console.log('Next.js app prepared');
 
-  // Test database connection by querying the current timestamp.
+  const app = express();
+
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+
+  // Basic middleware
+  app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    credentials: true
+  }));
+  
+  // Increase payload size limit if needed
+  app.use(bodyParser.json({ limit: '1mb' }));
+  app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
+
+  // Test database connection
   try {
     const res = await pool.query('SELECT NOW()');
     console.log('Database connection successful. Current time:', res.rows[0].now);
@@ -42,15 +50,18 @@ const setupServer = async () => {
     console.error('Error connecting to the database:', err);
   }
 
-  // Setup routes for the Express server.
+  // Routes
   app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
-  app.use('/api/users', bodyParser.json(), userRoutes); // Route for handling user-related API calls
-  app.use('/api/schedule', bodyParser.json(), scheduleRoutes); // Route for handling schedule-related API calls
+  app.use('/api/users', userRoutes);
+  app.use('/api/schedule', scheduleRoutes);
 
-  // Handle all other routes using Next.js's custom request handler.
+  // Handle Next.js requests
   app.all('*', (req, res) => {
-    return handle(req, res); // For all other requests, use Next.js to handle routing
+    return handle(req, res);
   });
+
+  // Error handling middleware - this must be last!
+  app.use(errorHandler);
 
   return app;
 };
@@ -69,6 +80,17 @@ if (require.main === module) {
   });
 }
 
-module.exports = setupServer;
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  try {
+    await pool.end();
+    console.log('Database pool closed');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error during shutdown:', err);
+    process.exit(1);
+  }
+});
 
-//taken help of chatgpt for connecting
+module.exports = setupServer;
