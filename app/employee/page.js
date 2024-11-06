@@ -7,18 +7,16 @@ import { Notifications } from '@mui/icons-material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import EmployeeCalendar from './components/Calendar';
-
-const apiUrl = process.env.NODE_ENV === 'production'
-  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
-  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
+import { supabase } from '../../backend/database/supabaseClient';
 
 export default function EmployeePage() {
-  const { signOut, getToken } = useAuth(); // Add getToken here
+  const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState('/images/default-avatar.png');
+  const [notifications, setNotifications] = useState([]);
 
   const router = useRouter();
 
@@ -26,36 +24,96 @@ export default function EmployeePage() {
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
-  // Fetch user profile image directly from the backend, similar to the profile page
+  // Fetch user profile image
   useEffect(() => {
     const fetchUserProfileImage = async () => {
       try {
-        const token = await getToken(); // Use getToken from useAuth
-        const response = await fetch(`${apiUrl}/api/users/profile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const token = await getToken();
+        const response = await fetch('/api/users/profile', {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        
+
         const data = await response.json();
-        console.log('Fetched profile data:', data); // Log profile data to check if image URL is correct
-  
-        if (response.ok && data.profileImageUrl) {
-          const uniqueImageUrl = `${data.profileImageUrl}?t=${new Date().getTime()}`;
-          setProfileImageUrl(uniqueImageUrl);
-        } else {
-          setProfileImageUrl('/images/default-avatar.png'); // Fallback if no URL is present
-        }
+        setProfileImageUrl(response.ok && data.profileImageUrl
+          ? `${data.profileImageUrl}?t=${new Date().getTime()}`
+          : '/images/default-avatar.png');
       } catch (error) {
         console.error('Error fetching profile image:', error);
       }
     };
-  
-    if (user) {
-      fetchUserProfileImage();
-    }
+
+    if (user) fetchUserProfileImage();
   }, [user, getToken]);
-  
+
+  // Fetch notifications from Supabase
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return;
+
+      // Step 1: Get the integer user ID from the users table
+      const { data: userRecord, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_user_id', user.id)
+        .single();
+
+      if (userError || !userRecord) {
+        console.error('Error fetching user record:', userError.message);
+        return;
+      }
+
+      const userId = userRecord.id; // integer ID
+
+      // Step 2: Fetch notifications with the sender's name associated with `from_user_id`
+      const { data, error } = await supabase
+        .from('notifications')
+        .select(`
+          *,
+          sender:from_user_id (first_name, last_name)  -- Explicitly fetch sender info from from_user_id relationship
+        `)
+        .or(`to_user_id.eq.${userId},broadcast.eq.true`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching notifications:', error.message);
+      } else {
+        setNotifications(data || []);
+      }
+    };
+
+    fetchNotifications();
+  }, [user]);
+
+  // Clear all notifications
+  const clearNotifications = async () => {
+    if (!user) return;
+
+    // Step 1: Get the integer user ID from the users table
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_user_id', user.id)
+      .single();
+
+    if (userError || !userRecord) {
+      console.error('Error fetching user record:', userError.message);
+      return;
+    }
+
+    const userId = userRecord.id; // integer ID
+
+    // Step 2: Clear notifications
+    const { error } = await supabase
+      .from('notifications')
+      .update({ is_read: true })
+      .match({ to_user_id: userId });
+
+    if (error) {
+      console.error('Error clearing notifications:', error.message);
+    } else {
+      setNotifications([]);
+    }
+  };
 
   return (
     <div className="relative min-h-screen text-black">
@@ -67,11 +125,29 @@ export default function EmployeePage() {
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
-        <button onClick={toggleNotifications} className="relative">
+        <button onClick={(e) => { e.stopPropagation(); toggleNotifications(); }} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
           {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
-              <p>No new notifications.</p>
+            <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50" onClick={(e) => e.stopPropagation()}>
+              <div className="max-h-64 overflow-y-auto">
+                {notifications.length > 0 ? (
+                  notifications.map((notification) => (
+                    <div key={notification.id} className="mb-2">
+                      <p>{notification.message}</p>
+                      <p className="text-xs text-gray-400">
+                        From: {notification.sender ? `${notification.sender.first_name} ${notification.sender.last_name}` : 'Unknown'}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p>No new notifications.</p>
+                )}
+              </div>
+              {notifications.length > 0 && (
+                <p className="text-gray-400 text-center mt-2 cursor-pointer" onClick={clearNotifications}>
+                  Clear notifications
+                </p>
+              )}
             </div>
           )}
         </button>
@@ -119,6 +195,8 @@ export default function EmployeePage() {
     </div>
   );
 }
+
+
 
 
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 

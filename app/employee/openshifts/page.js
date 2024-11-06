@@ -51,6 +51,7 @@ export default function OpenShiftsPage() {
       fetchUserProfileImage();
       fetchShifts();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchShifts = useCallback(async () => {
