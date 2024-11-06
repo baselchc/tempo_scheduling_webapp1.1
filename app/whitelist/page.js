@@ -21,22 +21,28 @@ export default function WhitelistPage() {
           // Query the Supabase database to check if the user is whitelisted
           const { data, error } = await supabase
             .from("users")
-            .select("is_whitelisted")
+            .select("role, is_whitelisted")
             .eq("email", user.emailAddresses)
             .single(); // Use .single() to get a single record
 
           if (error) throw error;
 
           // Redirect if the user is whitelisted
-          if (data && data.is_whitelisted === true) {
-            router.push("/employee");
+          if (data && data.is_whitelisted) {
+            // Redirect based on user role
+            if (data.role === 'manager') {
+              router.push('/manager');
+            } else if (data.role === 'employee') {
+              router.push('/employee');
+            } else {
+              alert('Your role is not recognized.');
+            }
           } else {
-            // DELETE LATER - For testing purposes only
-            alert("Your account is not whitelisted. Please contact management.");
+            alert('Your account is not whitelisted. Please contact management.');
           }
         } catch (err) {
-          console.error("Error checking whitelist status:", err.message);
-          alert("An error occurred. Please try again.");
+          console.error('Error checking user role and whitelist status:', err.message);
+          alert('An error occurred. Please try again.');
         }
       }
     };
