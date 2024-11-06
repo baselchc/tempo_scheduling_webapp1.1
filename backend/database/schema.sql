@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     first_name VARCHAR(255),
     last_name VARCHAR(255),
     phone VARCHAR(20),
-    role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')),
+    role VARCHAR(50) CHECK (role IN ('employee', 'manager', 'admin')) DEFAULT 'employee',
     profile_image BYTEA,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     is_whitelisted BOOLEAN DEFAULT FALSE

@@ -1,30 +1,55 @@
 "use client";
 
+import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation"; // Import useRouter for navigation
+import { supabase } from '/backend/database/supabaseClient';
+
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
 
 export default function WhitelistPage() {
-  const [code, setCode] = useState("");
-  const [correctCode, setCorrectCode] = useState(""); // State to hold the correct code from localStorage
+  const { user } = useUser();
   const router = useRouter(); // Initialize the router
 
   useEffect(() => {
-    // Retrieve the stored code from localStorage when the component mounts
-    const storedCode = localStorage.getItem("storedCode") || "1111"; // Fallback to "1111" if not set
-    setCorrectCode(storedCode); // Update the state with the stored code
-  }, []); // Run only once on mount
+    const checkWhitelistStatus = async () => {
+      if (user && user.emailAddresses) {
+        try {
+          // Query the Supabase database to check if the user is whitelisted
+          const { data, error } = await supabase
+            .from("users")
+            .select("role, is_whitelisted")
+            .eq("email", user.emailAddresses)
+            .single(); // Use .single() to get a single record
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+          if (error) throw error;
 
-    // Check if the entered code matches the correct code
-    if (code === correctCode) {
-      router.push("/employee"); // Redirect to the /employee page
-    } else {
-      alert("Invalid code. Please try again."); // Show an alert for an invalid code
-    }
-  };
+          // Redirect if the user is whitelisted
+          if (data && data.is_whitelisted) {
+            // Redirect based on user role
+            if (data.role === 'manager') {
+              router.push('/manager');
+            } else if (data.role === 'employee') {
+              router.push('/employee');
+            } else {
+              alert('Your role is not recognized.');
+            }
+          } else {
+            alert('Your account is not whitelisted. Please contact management.');
+          }
+        } catch (err) {
+          console.error('Error checking user role and whitelist status:', err.message);
+          alert('An error occurred. Please try again.');
+        }
+      }
+    };
+
+    // Call the async function within useEffect
+    checkWhitelistStatus();
+  }, [user, router]); // Run this effect when `user` or `router` changes
 
   return (
     <main className="flex flex-col gap-4 justify-center items-center text-center min-h-screen">
@@ -52,10 +77,10 @@ export default function WhitelistPage() {
         </div>
 
         {/* Code input form */}
-        <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4 mt-8 w-full max-w-[400px]">
+        <form onSubmit={null} className="flex flex-col items-center gap-4 mt-8 w-full max-w-[400px]">
           <input
             type="text"
-            value={code}
+            value={null}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Enter whitelist code"
             className="w-full p-2 rounded-md border-2 border-white bg-transparent text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
