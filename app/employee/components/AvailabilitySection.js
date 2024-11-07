@@ -108,7 +108,7 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
                     <select
                       value={availability[day]?.startTime}
                       onChange={(e) => handleAvailabilityChange(day, "startTime", e.target.value)}
-                      className="bg-transparent border border-white rounded px-2 py-1 text-white"
+                      className="bg-transparent border border-white rounded px-2 py-1 text-whie"
                     >
                       {WORK_HOURS.map(hour => (
                         <option key={hour} value={`${hour.toString().padStart(2, "0")}:00`}>
@@ -125,7 +125,9 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
                       className="bg-transparent border border-white rounded px-2 py-1 text-white"
                     >
                       {WORK_HOURS.map(hour => (
-                        <option key={hour} value={`${hour.toString().padStart(2, "0")}:00`}>
+                        <option key={hour} 
+                        value={`${hour.toString().padStart(2, "0")}:00`}
+                        className="bg-gray-800 text-white" >
                           {`${hour}:00`}
                         </option>
                       ))}
