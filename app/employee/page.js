@@ -17,6 +17,7 @@ export default function EmployeePage() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState('/images/default-avatar.png');
   const [notifications, setNotifications] = useState([]);
+  const [userShifts, setUserShifts] = useState([]);
 
   const router = useRouter();
 
@@ -24,7 +25,6 @@ export default function EmployeePage() {
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
-  // Fetch user profile image
   useEffect(() => {
     const fetchUserProfileImage = async () => {
       try {
@@ -45,12 +45,10 @@ export default function EmployeePage() {
     if (user) fetchUserProfileImage();
   }, [user, getToken]);
 
-  // Fetch notifications from Supabase
   useEffect(() => {
-    const fetchNotifications = async () => {
+    const fetchUserShifts = async () => {
       if (!user) return;
 
-      // Step 1: Get the integer user ID from the users table
       const { data: userRecord, error: userError } = await supabase
         .from('users')
         .select('id')
@@ -62,14 +60,53 @@ export default function EmployeePage() {
         return;
       }
 
-      const userId = userRecord.id; // integer ID
+      const userId = userRecord.id;
 
-      // Step 2: Fetch notifications with the sender's name associated with `from_user_id`
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + 6);
+
+      const { data, error } = await supabase
+        .from('my_shifts')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('shift_start', today.toISOString())
+        .lte('shift_end', endOfWeek.toISOString())
+        .order('shift_start', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching user shifts:', error.message);
+      } else {
+        setUserShifts(data || []);
+      }
+    };
+
+    fetchUserShifts();
+  }, [user]);
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return;
+
+      const { data: userRecord, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_user_id', user.id)
+        .single();
+
+      if (userError || !userRecord) {
+        console.error('Error fetching user record:', userError.message);
+        return;
+      }
+
+      const userId = userRecord.id;
+
       const { data, error } = await supabase
         .from('notifications')
         .select(`
           *,
-          sender:from_user_id (first_name, last_name)  -- Explicitly fetch sender info from from_user_id relationship
+          sender:from_user_id (first_name, last_name)
         `)
         .or(`to_user_id.eq.${userId},broadcast.eq.true`)
         .order('created_at', { ascending: false });
@@ -84,11 +121,9 @@ export default function EmployeePage() {
     fetchNotifications();
   }, [user]);
 
-  // Clear all notifications
   const clearNotifications = async () => {
     if (!user) return;
 
-    // Step 1: Get the integer user ID from the users table
     const { data: userRecord, error: userError } = await supabase
       .from('users')
       .select('id')
@@ -100,9 +135,8 @@ export default function EmployeePage() {
       return;
     }
 
-    const userId = userRecord.id; // integer ID
+    const userId = userRecord.id;
 
-    // Step 2: Clear notifications
     const { error } = await supabase
       .from('notifications')
       .update({ is_read: true })
@@ -190,14 +224,11 @@ export default function EmployeePage() {
           )}
         </div>
 
-        <EmployeeCalendar />
+        <EmployeeCalendar shifts={userShifts} />
       </div>
     </div>
   );
 }
-
-
-
 
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
   add the blurred background and adjust they layout to match the same feel of the login page.*/}
