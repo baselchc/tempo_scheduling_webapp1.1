@@ -57,7 +57,7 @@ export default function MessagesPage() {
 
     const { data: userRecord, error: userError } = await supabase
       .from("users")
-      .select("id")
+      .select("id, clerk_user_id") // Select both 'id' and 'clerk_user_id'
       .eq("clerk_user_id", user.id)
       .single();
 
@@ -72,9 +72,9 @@ export default function MessagesPage() {
       .from("notifications")
       .select(`
         *,
-        sender:from_user_id (first_name, last_name)
+        sender:from_user_id (first_name, last_name, clerk_user_id)
       `)
-      .eq("to_user_id", userId)
+      .or(`to_user_id.eq.${userId},broadcast.eq.true`) // Query both personal and broadcast notifications
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -157,7 +157,10 @@ export default function MessagesPage() {
   const fetchConversationReplies = async (conversationId) => {
     const { data, error } = await supabase
       .from("notifications")
-      .select("*")
+      .select(`
+        *,
+        sender:from_user_id (first_name, last_name, clerk_user_id)
+      `)
       .eq("conversation_id", conversationId)
       .order("created_at", { ascending: true });
 
@@ -281,7 +284,7 @@ export default function MessagesPage() {
                     {conversationReplies[notification.conversation_id]?.map((reply) => (
                       <div key={reply.id} className="mb-2">
                         <p className="font-semibold">
-                          {reply.from_user_id === user.id ? "You" : `${notification.sender.first_name} ${notification.sender.last_name}`}
+                          {reply.sender?.clerk_user_id === user.id ? "You" : `${reply.sender?.first_name || "Unknown"} ${reply.sender?.last_name || ""}`}
                         </p>
                         <p className="text-xs text-gray-500">{new Date(reply.created_at).toLocaleString()}</p>
                         <p>{reply.message}</p>
@@ -310,7 +313,6 @@ export default function MessagesPage() {
     </div>
   );
 }
-
 
 
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
