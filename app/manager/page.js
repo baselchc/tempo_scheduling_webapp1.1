@@ -1,25 +1,30 @@
 "use client";
 
-import { useUser, useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
-import NavBar from './components/NavBar'; // Import the NavBar component
-import { Notifications } from '@mui/icons-material'; // Icons for user and notifications
-import Image from 'next/image'; // Correct Image import
-import { useRouter } from 'next/navigation'; // Import useRouter for navigation
+import { useUser, useAuth } from "@clerk/nextjs";
+import { useState, useEffect } from "react";
+import NavBar from "./components/NavBar";
+import { Notifications, CheckCircleOutline } from "@mui/icons-material"; // Import CheckCircleOutline icon
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { supabase } from "../../backend/database/supabaseClient";
+import { format, addDays, subDays, parseISO, isSameDay } from "date-fns";
 
-export default function EmployeePage() {
-  const { signOut } = useAuth();
+export default function ManagerDashboard() {
+  const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [code, setCode] = useState(''); // State for local stored code
-  const [storedCode, setStoredCode] = useState(localStorage.getItem('storedCode') || '1111'); // Initialize with local storage value
-
-  const router = useRouter(); // Initialize the router
+  const [profileImageUrl, setProfileImageUrl] = useState("/images/default-avatar.png");
+  const [code, setCode] = useState("");
+  const [storedCode, setStoredCode] = useState(localStorage.getItem("storedCode") || "1111");
+  const [userSchedules, setUserSchedules] = useState([]);
+  const [weekStartDate, setWeekStartDate] = useState(new Date());
+  const [notifications, setNotifications] = useState([]);
+  const router = useRouter();
 
   const toggleMenu = () => {
-    setMenuOpen(!menuOpen);  // Toggle sidebar
+    setMenuOpen(!menuOpen);
   };
 
   const toggleNotifications = () => {
@@ -30,106 +35,260 @@ export default function EmployeePage() {
     setProfileMenuOpen(!profileMenuOpen);
   };
 
-  // Handle the code change
   const handleCodeChange = () => {
-    localStorage.setItem('storedCode', code); // Update local storage
-    setStoredCode(code); // Update local stored code state
-    setCode(''); // Clear input after saving
+    localStorage.setItem("storedCode", code);
+    setStoredCode(code);
+    setCode("");
+  };
+
+  // Fetch profile image
+  useEffect(() => {
+    const fetchUserProfileImage = async () => {
+      try {
+        const token = await getToken();
+        const response = await fetch("/api/users/profile", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await response.json();
+        setProfileImageUrl(
+          response.ok && data.profileImageUrl
+            ? `${data.profileImageUrl}?t=${new Date().getTime()}`
+            : "/images/default-avatar.png"
+        );
+      } catch (error) {
+        console.error("Error fetching profile image:", error);
+      }
+    };
+
+    if (user) fetchUserProfileImage();
+  }, [user, getToken]);
+
+  // Fetch notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      if (!user) return;
+
+      const { data: userRecord, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("clerk_user_id", user.id)
+        .single();
+
+      if (userError || !userRecord) {
+        console.error("Error fetching user record:", userError.message);
+        return;
+      }
+
+      const userId = userRecord.id;
+
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("id, message, is_read")
+        .or(`to_user_id.eq.${userId},broadcast.eq.true`)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error fetching notifications:", error.message);
+      } else {
+        setNotifications(data || []);
+      }
+    };
+
+    fetchNotifications();
+  }, [user]);
+
+  // Count unread notifications
+  const unreadNotificationCount = notifications.filter(n => !n.is_read).length;
+
+  const fetchData = async (startOfWeek) => {
+    const { data: users, error: usersError } = await supabase
+      .from("users")
+      .select("id, first_name, last_name, clerk_user_id");
+
+    if (usersError) {
+      console.error("Error fetching users:", usersError.message);
+      return;
+    }
+
+    const { data: shifts, error: shiftsError } = await supabase
+      .from("my_shifts")
+      .select("user_id, shift_start, shift_end");
+
+    if (shiftsError) {
+      console.error("Error fetching shifts:", shiftsError.message);
+      return;
+    }
+
+    const weeklySchedules = users.map((user) => {
+      const shiftsForUser = Array(7).fill("Off");
+
+      shifts.forEach((shift) => {
+        if (shift.user_id === user.clerk_user_id) {
+          for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const currentDay = new Date(startOfWeek);
+            currentDay.setDate(currentDay.getDate() + dayIndex);
+
+            const shiftStart = parseISO(shift.shift_start);
+            const shiftEnd = parseISO(shift.shift_end);
+
+            if (isSameDay(shiftStart, currentDay)) {
+              const shiftTimeRange = `${format(shiftStart, "hh:mm a")} - ${format(shiftEnd, "hh:mm a")}`;
+              shiftsForUser[dayIndex] = shiftTimeRange;
+            }
+          }
+        }
+      });
+
+      return {
+        userName: `${user.first_name} ${user.last_name}`,
+        shifts: shiftsForUser,
+        userId: user.id,
+      };
+    });
+
+    setUserSchedules(weeklySchedules);
+  };
+
+  useEffect(() => {
+    const startOfWeek = new Date(weekStartDate);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+    fetchData(startOfWeek);
+  }, [weekStartDate]);
+
+  const monthName = format(weekStartDate, "MMMM");
+  const weekDaysWithDates = Array.from({ length: 7 }).map((_, index) => {
+    const day = addDays(weekStartDate, index - weekStartDate.getDay());
+    return {
+      dayOfWeek: format(day, "EEEE"),
+      dayOfMonth: format(day, "d"),
+    };
+  });
+
+  const handlePreviousWeek = () => {
+    setWeekStartDate((prevDate) => subDays(prevDate, 7));
+  };
+
+  const handleNextWeek = () => {
+    setWeekStartDate((prevDate) => addDays(prevDate, 7));
+  };
+
+  const markAsRead = async (notificationId) => {
+    const { error } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("Error marking notification as read:", error.message);
+    } else {
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((n) =>
+          n.id === notificationId ? { ...n, is_read: true } : n
+        )
+      );
+    }
+  };
+
+  const handleNotificationClick = async (notificationId) => {
+    await markAsRead(notificationId);
+    router.push("/manager/messages");
   };
 
   return (
     <div className="relative min-h-screen text-black">
-      {/* Blurred background image */}
       <Image
-        src="/images/loginpagebackground.webp" // Ensure this path is correct
+        src="/images/loginpagebackground.webp"
         alt="Background"
-        layout="fill" // Use fill layout to cover the parent div
-        objectFit="cover" // Cover the entire area
-        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl" // Add blur class here
+        layout="fill"
+        objectFit="cover"
+        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
       />
 
-      {/* Navigation Bar */}
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-      {/* Top Right: User Info & Notifications */}
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
-        {/* Notifications Bell */}
         <button onClick={toggleNotifications} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
-          {/* Notification Popup */}
+          {unreadNotificationCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-4 flex items-center justify-center">
+              {unreadNotificationCount}
+            </span>
+          )}
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
-              <p>No new notifications.</p>
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
+                  <div key={notification.id} className="mb-2 flex items-center justify-between">
+                    <p
+                      onClick={() => handleNotificationClick(notification.id)}
+                      className="cursor-pointer hover:text-blue-600"
+                    >
+                      {notification.message}
+                    </p>
+                    {!notification.is_read && (
+                      <CheckCircleOutline
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-gray-400 cursor-pointer hover:text-black"
+                        titleAccess="Mark as read"
+                      />
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p>No new notifications.</p>
+              )}
             </div>
           )}
         </button>
 
-        {/* User Profile Dropdown */}
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <Image
             className="rounded-full"
-            src={user?.profileImageUrl || '/images/default-avatar.png'} // Use local default avatar image
+            src={profileImageUrl}
             alt="Profile image"
             width={40}
             height={40}
           />
-          <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
+          <span className="text-white font-semibold">
+            {user?.emailAddresses[0].emailAddress}
+          </span>
         </button>
-        {profileMenuOpen && (
-          <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
-            <ul>
-              {/* Edit Profile Option - Navigate to /employee/profile */}
-              <li
-                className="p-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => router.push('/employee/profile')} // Navigate to the profile page
-              >
-                Edit Profile
-              </li>
-              <li
-                className="p-2 hover:bg-gray-100 cursor-pointer"
-                onClick={() => signOut()}
-              >
-                Log Out
-              </li>
-            </ul>
-          </div>
-        )}
       </div>
 
-      {/* Main content space */}
-      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
+      <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? "ml-64" : "ml-20"}`}>
         <h1 className="text-4xl font-bold text-left text-white mb-8">
           Welcome to the Manager Dashboard
         </h1>
-        {/* User Information */}
-        <div className="mt-6 text-center">
-          {user ? (
-            <>
-              <h3 className="text-xl font-bold">Hello, {user.firstName} {user.lastName}!</h3>
-              <p className="text-sm text-gray-500"> {user.publicMetadata?.role || ""}.</p>
-            </>
-          ) : (
-            <p className="text-sm text-gray-500">Loading user information...</p>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-4">
+          <button onClick={handlePreviousWeek}>{"<"}</button>
+          {`Weekly Employee Schedule - ${monthName}`}
+          <button onClick={handleNextWeek}>{">"}</button>
+        </h2>
 
-        {/* Change Local Storage Code Section */}
-        <div className="mt-8">
-          <h2 className="text-xl font-bold text-white mb-4">Change New Employee Code</h2>
-          <input
-            type="text"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="Enter new code"
-            className="p-2 rounded-md border-2 border-white bg-transparent text-black placeholder-white focus:outline-none focus:ring-2 focus:ring-white"
-          />
-          <button
-            onClick={handleCodeChange}
-            className="ml-4 px-4 py-2 bg-white text-black rounded-md hover:bg-gray-300 transition-colors"
-          >
-            Change Code
-          </button>
-          <p className="mt-2 text-white">Current Code: {storedCode}</p>
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <table className="w-full text-center">
+            <thead>
+              <tr>
+                <th className="text-left p-4">Employee</th>
+                {weekDaysWithDates.map(({ dayOfWeek, dayOfMonth }, index) => (
+                  <th key={index} className="p-4">{`${dayOfWeek} ${dayOfMonth}`}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {userSchedules.map((user) => (
+                <tr key={user.userId}>
+                  <td className="text-left p-4 border-b">{user.userName}</td>
+                  {user.shifts.map((shift, shiftIndex) => (
+                    <td key={shiftIndex} className="p-4 border-b">
+                      {shift}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
