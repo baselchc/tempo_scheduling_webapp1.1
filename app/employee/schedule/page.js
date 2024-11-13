@@ -10,6 +10,7 @@ import { format, differenceInHours, parse, startOfWeek, endOfWeek } from 'date-f
 import Papa from 'papaparse'; // For CSV export
 import jsPDF from 'jspdf'; // For PDF export
 import html2canvas from 'html2canvas'; // For PDF export
+import { supabase } from '../../../backend/database/supabaseClient'; // Update path if needed
 
 const apiUrl = process.env.NODE_ENV === 'production'
   ? 'https://tempo-scheduling-webapp1-1.vercel.app'
@@ -25,19 +26,11 @@ export default function SchedulePage() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [showWeeklySchedule, setShowWeeklySchedule] = useState(false);
   const { getToken } = useAuth();
-  const [scheduleData] = useState([
-    { date: "2024-10-02", shift: "9 AM - 5 PM", status: "Confirmed" },
-    { date: "2024-10-03", shift: "10 AM - 6 PM", status: "Confirmed" },
-    { date: "2024-10-04", shift: "11 AM - 7 PM", status: "Dropped" },
-    { date: "2024-10-05", shift: "12 PM - 8 PM", status: "Confirmed" },
-    { date: "2024-10-06", shift: "1 PM - 9 PM", status: "Confirmed" },
-    { date: "2024-10-07", shift: "9 AM - 5 PM", status: "Confirmed" },
-    { date: "2024-10-08", shift: "8 AM - 4 PM", status: "Extra Shift" },
-  ]);
+  const [scheduleData, setScheduleData] = useState([]);
 
   const router = useRouter();
 
-  // Fetch the profile image URL from the API
+  // Fetch profile image
   const fetchUserProfileImage = async () => {
     try {
       const token = await getToken();
@@ -60,16 +53,51 @@ export default function SchedulePage() {
   useEffect(() => {
     if (user) {
       fetchUserProfileImage();
+      fetchScheduleData();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Fetch schedule data from my_shifts table
+  const fetchScheduleData = async () => {
+    if (!user) return;
+
+    const { data: userRecord, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_user_id', user.id)
+      .single();
+
+    if (userError || !userRecord) {
+      console.error('Error fetching user record:', userError.message);
+      return;
+    }
+
+    const userId = userRecord.id;
+
+    const { data, error } = await supabase
+      .from('my_shifts')
+      .select('*')
+      .eq('user_id', userId)
+      .order('shift_start', { ascending: true });
+
+    if (error) {
+      console.error("Error fetching schedule data:", error.message);
+    } else {
+      const formattedData = data.map(shift => ({
+        date: format(new Date(shift.shift_start), 'yyyy-MM-dd'),
+        shift: `${format(new Date(shift.shift_start), 'h a')} - ${format(new Date(shift.shift_end), 'h a')}`,
+        status: shift.reason || 'Confirmed'
+      }));
+      setScheduleData(formattedData);
+    }
+  };
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
-  const startDateOfWeek = startOfWeek(selectedDate);
-  const endDateOfWeek = endOfWeek(selectedDate);
+  const startDateOfWeek = startOfWeek(selectedDate || new Date());
+  const endDateOfWeek = endOfWeek(selectedDate || new Date());
 
   const weeklySchedule = scheduleData.filter(item => {
     const itemDate = new Date(item.date);
@@ -99,7 +127,7 @@ export default function SchedulePage() {
 
   const resetDate = () => {
     setSelectedDate(new Date());
-    setShowWeeklySchedule(false); // Reset to show daily schedule
+    setShowWeeklySchedule(false);
   };
 
   // CSV Export Function
@@ -263,5 +291,6 @@ export default function SchedulePage() {
     </div>
   );
 }
+
 
 //code enhanced with help of chatgpt4 and prompt was Develop a Next.js schedule management page that includes user authentication, profile actions, notifications, and a feature to toggle between daily and weekly views. Ensure the component can export data in both CSV and PDF formats and incorporates dynamic interactions for an enhanced user experience."
