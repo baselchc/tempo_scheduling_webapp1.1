@@ -1,59 +1,63 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { supabase } from '../../../backend/database/supabaseClient'; // Adjust the import path as necessary
+import { useUser } from '@clerk/nextjs';
 
 const EmployeeCalendar = () => {
   const [scheduleData, setScheduleData] = useState([]);
+  const { user } = useUser();
 
   useEffect(() => {
-    const today = new Date();
-    const upcomingSchedule = [];
+    const fetchScheduleData = async () => {
+      if (!user) return;
 
-    // Define shifts for the week with start and end times
-    const shiftsForWeek = [
-      // Day 0: Today
-      [
-        { start: 9, end: 17 }, // Shift from 9 AM to 5 PM
-        { start: 10, end: 18 }, // Shift from 10 AM to 6 PM
-      ],
-      // Day 1
-      [
-        { start: 10, end: 18 }, // Shift from 10 AM to 6 PM
-      ],
-      // Day 2
-      [
-        { start: 9, end: 17 }, // Shift from 9 AM to 5 PM
-        { start: 11, end: 19 }, // Shift from 11 AM to 7 PM
-      ],
-      // Day 3
-      [
-        { start: 12, end: 20 }, // Shift from 12 PM to 8 PM
-      ],
-      // Day 4
-      [
-        { start: 13, end: 21 }, // Shift from 1 PM to 9 PM
-        { start: 14, end: 22 }, // Shift from 2 PM to 10 PM
-      ],
-      // Day 5
-      [
-        { start: 9, end: 17 }, // Shift from 9 AM to 5 PM
-      ],
-      // Day 6
-      [
-        { start: 8, end: 16 }, // Shift from 8 AM to 4 PM
-      ],
-    ];
+      // Calculate start and end dates for the upcoming week
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + 6);
+      
+      // Fetch shifts from the my_shifts table for the current user within this date range
+      const { data, error } = await supabase
+        .from('my_shifts')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('shift_start', today.toISOString())
+        .lte('shift_end', endOfWeek.toISOString())
+        .order('shift_start', { ascending: true });
 
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      upcomingSchedule.push({
-        date: date.toDateString(),
-        shifts: shiftsForWeek[i], // Assign the shifts for the corresponding day
+      if (error) {
+        console.error("Error fetching schedule data:", error.message);
+        return;
+      }
+
+      // Process fetched data to organize it by days of the week
+      const schedule = Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        return {
+          date: date.toDateString(),
+          shifts: data
+            .filter(shift => {
+              const shiftDate = new Date(shift.shift_start);
+              return (
+                shiftDate.getFullYear() === date.getFullYear() &&
+                shiftDate.getMonth() === date.getMonth() &&
+                shiftDate.getDate() === date.getDate()
+              );
+            })
+            .map(shift => ({
+              start: new Date(shift.shift_start).getHours(),
+              end: new Date(shift.shift_end).getHours(),
+            })),
+        };
       });
-    }
 
-    setScheduleData(upcomingSchedule);
-  }, []);
+      setScheduleData(schedule);
+    };
+
+    fetchScheduleData();
+  }, [user]);
 
   // Define the hourly range
   const hoursRange = Array.from({ length: 15 }, (_, i) => i + 8); // 8 AM to 10 PM
@@ -85,14 +89,10 @@ const EmployeeCalendar = () => {
             <tr key={index}>
               <td className="p-2 font-medium border-b border-black">{formatTime(hour)}</td>
               {scheduleData.map((item, dayIndex) => {
-                // Find shifts for the current hour
                 const shiftsForDay = item.shifts || [];
                 const currentShift = shiftsForDay.find(shift => hour >= shift.start && hour < shift.end);
 
-                // Determine cell background color based on whether there is a shift
-                const cellClass = currentShift ? "bg-blue-300" : "bg-gray-200"; // Shift present or not
-                
-                // Check if the current hour is the first hour of a shift
+                const cellClass = currentShift ? "bg-blue-300" : "bg-gray-200";                
                 const displayShiftTime = currentShift && hour === currentShift.start;
 
                 return (
@@ -108,14 +108,14 @@ const EmployeeCalendar = () => {
 
       <style jsx>{`
         table {
-          font-family: 'Arial', sans-serif; /* Change to a different font */
+          font-family: 'Arial', sans-serif;
         }
         th, td {
-          text-align: center; /* Center align text */
-          border: none; /* Remove all borders */
+          text-align: center;
+          border: none;
         }
         tr {
-          border-bottom: none; /* Remove bottom border from rows */
+          border-bottom: none;
         }
       `}</style>
     </div>
@@ -123,5 +123,6 @@ const EmployeeCalendar = () => {
 };
 
 export default EmployeeCalendar;
+
  
 // code written with help of Chatgpt4 and prompt was "create a EmployeeCalendar that displays an employee's weekly schedule in a visual table format. The component should dynamically generate the schedule for the current week starting from today. Each day should display shifts with start and end times. The times should range from 8 AM to 10 PM daily."
