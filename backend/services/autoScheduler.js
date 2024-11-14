@@ -16,13 +16,14 @@ async function createShift(employeeId, shiftData) {
   try {
     const event = {
       summary: `${shiftData.employeeName} - ${shiftData.shift_type} Shift`,
+      description: `Employee ID: ${employeeId}`,
       start: {
         dateTime: shiftData.shift_type === 'morning' ? '09:00:00' : '13:00:00',
-        timeZone: 'America/New_York',
+        timeZone: 'America/Edmonton', //Mountain Time Zone
       },
       end: {
         dateTime: shiftData.shift_type === 'morning' ? '13:00:00' : '17:00:00',
-        timeZone: 'America/New_York',
+        timeZone: 'America/Edmonton', //Mountain Time Zone
       },
       attendees: [{ email: shiftData.employeeEmail }],
       status: 'confirmed',
