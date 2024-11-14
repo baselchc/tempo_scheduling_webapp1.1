@@ -209,4 +209,32 @@ router.get('/weekly-schedule/:employeeId', ClerkExpressWithAuth(), async (req, r
   }
 });
 
+// Schedule Generater route
+router.post('/generate-schedule', ClerkExpressWithAuth(), checkRole(['manager']), async (req, res) => {
+  const { weekStart } = req.body;
+
+  try {
+    const scheduler = new AutoScheduler(weekStart);
+    const schedule = await scheduler.generateSchedule();
+
+    // Optionally create Google Calendar events
+    for (const shift of schedule) {
+      await createShift(shift.employee_id, {
+        employeeName: `${shift.first_name} ${shift.last_name}`,
+        employeeEmail: shift.email,
+        shift_type: shift.shift_type,
+        date: shift.date
+      });
+    }
+
+    res.json({
+      message: 'Schedule generated successfully',
+      schedule
+    });
+  } catch (error) {
+    console.error('Error generating schedule:', error);
+    res.status(500).json({ error: 'Failed to generate schedule' });
+  }
+});
+
 module.exports = router;
