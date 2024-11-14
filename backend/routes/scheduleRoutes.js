@@ -238,3 +238,5 @@ router.post('/generate-schedule', ClerkExpressWithAuth(), checkRole(['manager'])
 });
 
 module.exports = router;
+
+// Used claude ai to assist in making code "Give me basic steps for creating an express.js router for managing employee schedules"

@@ -42,3 +42,5 @@ async function createShift(employeeId, shiftData) {
 }
 
 module.exports = { createShift };
+
+// Used claude ai to assist in making code, "whats a good way to make a function that creates google calendar events"
