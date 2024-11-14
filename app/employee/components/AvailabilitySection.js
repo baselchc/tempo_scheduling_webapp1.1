@@ -3,7 +3,11 @@
 import { Clock } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const WORK_HOURS = Array.from({ length: 9 }, (_, i) => i + 9); // 9 AM to 5 PM
+const SHIFTS = {
+  MORNING: "morning", // 9 AM - 1 PM
+  AFTERNOON: "afternoon" // 1 PM - 5 PM
+};
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
 export default function AvailabilitySection({ onAvailabilityChange, initialAvailability = {} }) {
@@ -11,49 +15,27 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
   const [submitStatus, setSubmitStatus] = useState({ type: "", message: "" });
 
   useEffect(() => {
-    // Initialize availability state with default values
     const defaultAvailability = {};
     DAYS.forEach(day => {
       defaultAvailability[day] = {
-        isAvailable: false,
-        startTime: "09:00",
-        endTime: "17:00"
+        morning: false,
+        afternoon: false
       };
     });
     setAvailability({ ...defaultAvailability, ...initialAvailability });
   }, [initialAvailability]);
 
-  const handleAvailabilityChange = (day, field, value) => {
+  const handleShiftChange = (day, shift) => {
     setAvailability(prev => ({
       ...prev,
       [day]: {
         ...prev[day],
-        [field]: value
+        [shift]: !prev[day][shift]
       }
     }));
   };
 
-  const validateTimes = (startTime, endTime) => {
-    const start = new Date(`2000-01-01T${startTime}`);
-    const end = new Date(`2000-01-01T${endTime}`);
-    return start < end;
-  };
-
   const handleSubmit = async () => {
-    // Validate times for all available days
-    let isValid = true;
-    Object.entries(availability).forEach(([day, slots]) => {
-      if (slots.isAvailable && !validateTimes(slots.startTime, slots.endTime)) {
-        isValid = false;
-        setSubmitStatus({
-          type: "error",
-          message: `Invalid time range for ${day}`
-        });
-      }
-    });
-
-    if (!isValid) return;
-
     try {
       if (onAvailabilityChange) {
         await onAvailabilityChange(availability);
@@ -91,50 +73,27 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
         <div className="grid gap-4">
           {DAYS.map(day => (
             <div key={day} className="flex items-center space-x-4 p-4 rounded-lg bg-white/10">
-              <label className="flex items-center space-x-2 min-w-[150px]">
-                <input
-                  type="checkbox"
-                  checked={availability[day]?.isAvailable}
-                  onChange={(e) => handleAvailabilityChange(day, "isAvailable", e.target.checked)}
-                  className="form-checkbox text-blue-500"
-                />
-                <span className="text-white font-medium">{day}</span>
-              </label>
-              
-              {availability[day]?.isAvailable && (
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white">From</span>
-                    <select
-                      value={availability[day]?.startTime}
-                      onChange={(e) => handleAvailabilityChange(day, "startTime", e.target.value)}
-                      className="bg-transparent border border-white rounded px-2 py-1 text-whie"
-                    >
-                      {WORK_HOURS.map(hour => (
-                        <option key={hour} value={`${hour.toString().padStart(2, "0")}:00`}>
-                          {`${hour}:00`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white">To</span>
-                    <select
-                      value={availability[day]?.endTime}
-                      onChange={(e) => handleAvailabilityChange(day, "endTime", e.target.value)}
-                      className="bg-transparent border border-white rounded px-2 py-1 text-white"
-                    >
-                      {WORK_HOURS.map(hour => (
-                        <option key={hour} 
-                        value={`${hour.toString().padStart(2, "0")}:00`}
-                        className="bg-gray-800 text-white" >
-                          {`${hour}:00`}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
+              <span className="text-white font-medium min-w-[100px]">{day}</span>
+              <div className="flex gap-4">
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={availability[day]?.morning || false}
+                    onChange={() => handleShiftChange(day, SHIFTS.MORNING)}
+                    className="form-checkbox text-blue-500"
+                  />
+                  <span className="text-white">Morning (9 AM - 1 PM)</span>
+                </label>
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={availability[day]?.afternoon || false}
+                    onChange={() => handleShiftChange(day, SHIFTS.AFTERNOON)}
+                    className="form-checkbox text-blue-500"
+                  />
+                  <span className="text-white">Afternoon (1 PM - 5 PM)</span>
+                </label>
+              </div>
             </div>
           ))}
         </div>
@@ -151,3 +110,5 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
     </div>
   );
 }
+
+// Used claude ai to assit with creating this page "what's an efficient way for employees to submit their availability"

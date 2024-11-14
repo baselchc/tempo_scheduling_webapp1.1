@@ -32,15 +32,14 @@ const setupServer = async () => {
     allowedHeaders: ['Content-Type', 'Authorization']
   }));
 
-  // Basic middleware
-  app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-    credentials: true
-  }));
+  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
   
   // Increase payload size limit if needed
   app.use(bodyParser.json({ limit: '1mb' }));
   app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
+
+  app.use('/api/users', userRoutes);
+  app.use('/api/schedule', scheduleRoutes);
 
   // Test database connection
   try {
@@ -49,11 +48,6 @@ const setupServer = async () => {
   } catch (err) {
     console.error('Error connecting to the database:', err);
   }
-
-  // Routes
-  app.use('/webhooks/clerk', bodyParser.raw({ type: 'application/json' }), clerkWebhooks);
-  app.use('/api/users', userRoutes);
-  app.use('/api/schedule', scheduleRoutes);
 
   // Handle Next.js requests
   app.all('*', (req, res) => {
