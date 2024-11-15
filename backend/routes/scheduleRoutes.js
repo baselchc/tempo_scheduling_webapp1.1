@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/db');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
+const checkRole = require('../middleware/checkRole');
 
 // Create a new schedule
 router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
