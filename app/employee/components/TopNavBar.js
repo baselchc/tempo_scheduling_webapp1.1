@@ -1,1 +1,0 @@
-//code enhanced with chatgpt4 and youtube and prompt "Create a React component called TopNavBar that includes a navigation bar with a blue background and white text. The bar should feature an announcements bell icon and a user profile icon."

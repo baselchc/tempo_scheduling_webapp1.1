@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@clerk/clerk-sdk-node": "^5.0.48",
-    "@clerk/nextjs": "^5.7.1",
+    "@clerk/nextjs": "^5.7.2",
     "@emotion/react": "^11.13.3",
     "@emotion/styled": "^11.13.0",
     "@fortawesome/fontawesome-svg-core": "^6.6.0",
@@ -20,6 +20,7 @@
     "@fortawesome/react-fontawesome": "^0.2.2",
     "@mui/icons-material": "^6.1.1",
     "@mui/material": "^6.1.1",
+    "@supabase/supabase-js": "^2.45.6",
     "axios": "^1.7.7",
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.3",
@@ -28,6 +29,7 @@
     "datepicker": "^0.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
+    "framer-motion": "^11.11.11",
     "googleapis": "^144.0.0",
     "html2canvas": "^1.4.1",
     "jsonwebtoken": "^9.0.2",
@@ -42,9 +44,13 @@
     "raw-body": "^3.0.0",
     "react": "^18.3.1",
     "react-calendar": "^5.0.0",
+    "react-datepicker": "^7.5.0",
     "react-dom": "^18.3.1",
+    "react-time-picker": "^7.0.0",
+    "sharp": "^0.33.5",
     "styled-components": "^6.1.13",
-    "svix": "^1.37.0"
+    "svix": "^1.37.0",
+    "tempo_scheduling_webapp1.1": "file:"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
