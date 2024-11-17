@@ -50,6 +50,7 @@ export default function MessagesPage() {
       fetchNotifications();
       fetchUsers();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, getToken]);
 
   const fetchNotifications = async () => {
@@ -318,3 +319,4 @@ export default function MessagesPage() {
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
   add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
   tab and allow a view of Available Shifts and Open Shifts.*/}
+
