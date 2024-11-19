@@ -247,8 +247,8 @@ export default function ManagerDashboard() {
             className="rounded-full"
             src={profileImageUrl}
             alt="Profile image"
-            width={40}
-            height={40}
+            width={30}
+            height={30}
           />
           <span className="text-white font-semibold">
             {user?.emailAddresses[0].emailAddress}

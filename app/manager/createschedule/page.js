@@ -16,7 +16,7 @@ export default function CreateSchedulePage() {
   const [notifications, setNotifications] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState('');
   const [shiftStart, setShiftStart] = useState('');
   const [shiftEnd, setShiftEnd] = useState('');
   const [reason, setReason] = useState('');
@@ -87,7 +87,7 @@ export default function CreateSchedulePage() {
     const fetchEmployees = async () => {
       const { data, error } = await supabase
         .from('users')
-        .select('id, first_name, last_name');
+        .select('id, clerk_user_id, first_name, last_name'); // Include clerk_user_id
 
       if (error) {
         console.error('Error fetching employees:', error.message);
@@ -101,21 +101,28 @@ export default function CreateSchedulePage() {
 
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedEmployee || !shiftStart || !shiftEnd || !weekPeriod) {
       alert("Please fill in all required fields.");
+      return;
+    }
+
+    // Find the selected employee's clerk_user_id
+    const employee = employees.find((emp) => emp.clerk_user_id === selectedEmployee);
+    if (!employee) {
+      alert("Selected employee has an invalid ID.");
       return;
     }
 
     const { error } = await supabase
       .from('my_shifts')
       .insert({
-        user_id: selectedEmployee,
+        user_id: selectedEmployee, // Use clerk_user_id
         shift_start: shiftStart,
         shift_end: shiftEnd,
         reason: reason,
         week_period: weekPeriod,
-        assigned_to: selectedEmployee, // Assign to the selected user
+        assigned_to: selectedEmployee, // Assign to the correct user
       });
 
     if (error) {
@@ -127,7 +134,7 @@ export default function CreateSchedulePage() {
       setShiftEnd('');
       setReason('');
       setWeekPeriod('');
-      setSelectedEmployee(null);
+      setSelectedEmployee('');
     }
   };
 
@@ -202,7 +209,7 @@ export default function CreateSchedulePage() {
               >
                 <option value="">-- Select Employee --</option>
                 {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
+                  <option key={employee.clerk_user_id} value={employee.clerk_user_id}>
                     {employee.first_name} {employee.last_name}
                   </option>
                 ))}
@@ -235,7 +242,6 @@ export default function CreateSchedulePage() {
 }
 
 
-
-
-
-// chatgpt prompt for enhancing :Create a React component with useState and useEffect for scheduling shifts. Use axios to fetch employees (GET /api/employees/get-employees) and submit schedules (POST /api/schedule/create-schedule). Include date/time pickers, auto-fill shift end, and display success/failure messages. Style with Tailwind CSS.
+// chatgpt prompt for enhancing :Create a React component with useState and useEffect for scheduling shifts. 
+//Use axios to fetch employees (GET /api/employees/get-employees) and submit schedules (POST /api/schedule/create-schedule). 
+//Include date/time pickers, auto-fill shift end, and display success/failure messages. Style with Tailwind CSS.
