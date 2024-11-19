@@ -143,7 +143,7 @@ export default function EmployeePage() {
 
   const handleNotificationClick = async (notificationId) => {
     await markNotificationAsRead(notificationId);
-    router.push('/employee/messages');
+    router.push('/employee/notifications');
   };
 
   return (

@@ -246,14 +246,14 @@ export default function MessagesPage() {
           <textarea
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
-            placeholder="Enter your message..."
+            placeholder="What's in your mind?..."
             className="w-full p-2 border rounded-lg mb-2"
           ></textarea>
           <button
             onClick={handleSendMessage}
             className="w-full p-2 bg-blue-500 text-white rounded-lg"
           >
-            Send Message
+            Send Notification
           </button>
         </div>
 

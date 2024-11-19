@@ -55,6 +55,7 @@ export default function SchedulePage() {
       fetchUserProfileImage();
       fetchScheduleData();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Fetch schedule data from my_shifts table
