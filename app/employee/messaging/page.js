@@ -3,14 +3,19 @@
 import { useUser } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import { supabase } from "../../../backend/database/supabaseClient";
+import Image from 'next/image';
+import NavBar from '../components/NavBar';
 
-export default function InstagramStyleMessagesPage() {
+export default function MessagingPage() {
   const { user } = useUser();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [users, setUsers] = useState([]);
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  const [menuOpen, setMenuOpen] = useState(false);
+  const toggleMenu = () => setMenuOpen(!menuOpen);
 
   useEffect(() => {
     if (user) {
@@ -98,79 +103,91 @@ export default function InstagramStyleMessagesPage() {
   };
 
   return (
-    <div className="flex h-screen">
-      {/* Sidebar */}
-      <div className="w-1/4 bg-black-100 border-r p-4">
-        <h2 className="text-lg font-bold mb-4">Chats</h2>
-        <ul>
-          {users.map((u) => (
-            <li
-              key={u.id}
-              onClick={() => setSelectedUserId(u.id)}
-              className={`p-2 rounded cursor-pointer ${
-                selectedUserId === u.id
-                  ? "bg-blue-500 text-white"
-                  : "hover:bg-gray-200"
-              }`}
-            >
-              {u.first_name} {u.last_name}
-            </li>
-          ))}
-        </ul>
-      </div>
+    <div className="relative min-h-screen">
+      <Image
+          src="/images/loginpagebackground.webp"
+          alt="Background"
+          layout="fill"
+          objectFit="cover"
+          className="absolute inset-0 -z-10 filter blur-2xl"
+      />
 
-      {/* Chat Window */}
-      <div className="flex-1 flex flex-col">
-        {selectedUserId ? (
-          <>
-            {/* Chat Header */}
-            <div className="border-b p-4 bg-white">
-              <h2 className="text-xl font-semibold">
-                {users.find((u) => u.id === selectedUserId)?.first_name}{" "}
-                {users.find((u) => u.id === selectedUserId)?.last_name}
-              </h2>
-            </div>
+      <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-scroll p-4">
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`mb-4 p-2 rounded ${
-                    msg.from_user_id === currentUserId
-                      ? "bg-blue-100 self-end"
-                      : "bg-gray-200 self-start"
-                  }`}
-                >
-                  <p>{msg.message}</p>
-                  <span className="text-xs text-gray-500">
-                    {new Date(msg.created_at).toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {/* Message Input */}
-            <div className="p-4 border-t bg-white">
-              <textarea
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Type your message..."
-                className="border p-2 rounded w-full mb-2"
-              />
-              <button
-                onClick={handleSendMessage}
-                className="bg-blue-500 text-white px-4 py-2 rounded"
+      <div className={`flex flex-row min-h-screen transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
+        {/* Sidebar */}
+        <div className="w-1/4 bg-white border-r p-4 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4 text-black">Chats</h2>
+          <ul className="space-y-2">
+            {users.map((u) => (
+              <li
+                key={u.id}
+                onClick={() => setSelectedUserId(u.id)}
+                className={`text-black p-2 rounded cursor-pointer ${
+                  selectedUserId === u.id
+                    ? "bg-blue-500 text-white"
+                    : "hover:bg-gray-200"
+                }`}
               >
-                Send
-              </button>
+                {u.first_name} {u.last_name}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Chat Window */}
+        <div className="flex-1 flex flex-col bg-white">
+          {selectedUserId ? (
+            <>
+              {/* Chat Header */}
+              <div className="border-b p-4 bg-white">
+                <h2 className="text-black text-xl font-semibold">
+                  {users.find((u) => u.id === selectedUserId)?.first_name}{" "}
+                  {users.find((u) => u.id === selectedUserId)?.last_name}
+                </h2>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-scroll p-4 space-y-4">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`text-black mb-4 p-3 rounded-lg ${
+                      msg.from_user_id === currentUserId
+                        ? "bg-blue-100 self-end"
+                        : "bg-gray-200 self-start"
+                    }`}
+                  >
+                    <p>{msg.message}</p>
+                    <span className="text-xs text-gray-500">
+                      {new Date(msg.created_at).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Message Input */}
+              <div className="p-4 border-t bg-white text-black">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="border p-2 rounded w-full mb-2"
+                />
+                <button
+                  onClick={handleSendMessage}
+                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                >
+                  Send
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-gray-500">Select a chat to start messaging</p>
             </div>
-          </>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <p className="text-gray-500">Select a chat to start messaging</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
