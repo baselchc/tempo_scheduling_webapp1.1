@@ -116,17 +116,17 @@ export default function MessagingPage() {
 
       <div className={`flex flex-row min-h-screen transition-all z-10 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
         {/* Sidebar */}
-        <div className="w-1/4 bg-white border-r p-4 overflow-y-auto">
-          <h2 className="text-xl font-bold mb-4 text-black">Chats</h2>
+        <div className="w-1/4  border-r p-4 overflow-y-auto">
+          <h2 className="text-xl font-bold mb-4 text-white">Chats</h2>
           <ul className="space-y-2">
             {users.map((u) => (
               <li
                 key={u.id}
                 onClick={() => setSelectedUserId(u.id)}
-                className={`text-black p-2 rounded cursor-pointer ${
+                className={`text-white p-2 rounded cursor-pointer ${
                   selectedUserId === u.id
-                    ? "bg-blue-500 text-white"
-                    : "hover:bg-gray-200"
+                    ? "bg-blue-600 text-white"
+                    : "hover:bg-blue-100"
                 }`}
               >
                 {u.first_name} {u.last_name}
@@ -136,12 +136,12 @@ export default function MessagingPage() {
         </div>
 
         {/* Chat Window */}
-        <div className="flex-1 flex flex-col bg-white">
+        <div className="flex-1 flex flex-col ">
           {selectedUserId ? (
             <>
               {/* Chat Header */}
-              <div className="border-b p-4 bg-white">
-                <h2 className="text-black text-xl font-semibold">
+              <div className="border-b p-4 ">
+                <h2 className="text-white text-xl font-semibold">
                   {users.find((u) => u.id === selectedUserId)?.first_name}{" "}
                   {users.find((u) => u.id === selectedUserId)?.last_name}
                 </h2>
@@ -154,12 +154,12 @@ export default function MessagingPage() {
                     key={msg.id}
                     className={`text-black mb-4 p-3 rounded-lg ${
                       msg.from_user_id === currentUserId
-                        ? "bg-blue-100 self-end"
+                        ? "bg-white self-end"
                         : "bg-gray-200 self-start"
                     }`}
                   >
                     <p>{msg.message}</p>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-black">
                       {new Date(msg.created_at).toLocaleString()}
                     </span>
                   </div>
@@ -167,7 +167,7 @@ export default function MessagingPage() {
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t bg-white text-black">
+              <div className="p-4 border-t  text-black">
                 <textarea
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
@@ -176,7 +176,7 @@ export default function MessagingPage() {
                 />
                 <button
                   onClick={handleSendMessage}
-                  className="bg-blue-500 text-white px-4 py-2 rounded"
+                  className="bg-blue-600 text-white px-4 py-2 rounded"
                 >
                   Send
                 </button>
