@@ -50,6 +50,7 @@ export default function MessagesPage() {
       fetchNotifications();
       fetchUsers();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, getToken]);
 
   const fetchNotifications = async () => {
@@ -225,10 +226,10 @@ export default function MessagesPage() {
       </div>
 
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? "ml-64" : "ml-20"}`}>
-        <h1 className="text-4xl font-bold text-center text-white mb-8">Messages</h1>
+        <h1 className="text-4xl font-bold text-center text-white mb-8">Notifications</h1>
 
         <div className="bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-white">Create Message</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-white">Create notification</h2>
           <select
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}

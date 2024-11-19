@@ -192,7 +192,7 @@ export default function ManagerDashboard() {
 
   const handleNotificationClick = async (notificationId) => {
     await markAsRead(notificationId);
-    router.push("/manager/messages");
+    router.push("/manager/notifications");
   };
 
   return (
