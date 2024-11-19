@@ -1,3 +1,5 @@
+// backend/middleware/checkRole.js
+
 const db = require('../database/db');
 
 const checkRole = (allowedRoles) => {

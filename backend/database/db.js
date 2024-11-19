@@ -1,97 +1,134 @@
+// backend/database/db.js
+
 const { Pool } = require('pg');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-// Configuration object with all pool settings
-const poolConfig = {
+// First try connection string if available
+const connectionString = process.env.DATABASE_URL;
+
+// Backup configuration object
+const poolConfig = connectionString ? { connectionString } : {
   user: process.env.POSTGRES_USER,
+  password: process.env.POSTGRES_PASSWORD,
   host: process.env.POSTGRES_HOST,
   database: process.env.POSTGRES_DB,
-  password: process.env.POSTGRES_PASSWORD,
   port: process.env.POSTGRES_PORT,
-  // Pool specific configurations
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 2000, // Return an error after 2 seconds if connection could not be established
-  maxUses: 7500 // Close and replace a connection after it has been used 7500 times
 };
 
-// Log configuration (excluding sensitive data)
+// Add SSL configuration if needed (for production)
+if (process.env.NODE_ENV === 'production') {
+  poolConfig.ssl = {
+    rejectUnauthorized: false
+  };
+}
+
+// Add pool specific configurations
+const poolSettings = {
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  maxUses: 7500
+};
+
+const finalConfig = {
+  ...poolConfig,
+  ...poolSettings
+};
+
+// Log configuration (safely)
 console.log('Database configuration:', {
-  user: poolConfig.user,
-  host: poolConfig.host,
-  database: poolConfig.database,
-  port: poolConfig.port,
-  max: poolConfig.max,
-  idleTimeoutMillis: poolConfig.idleTimeoutMillis,
-  connectionTimeoutMillis: poolConfig.connectionTimeoutMillis,
-  maxUses: poolConfig.maxUses
+  ...finalConfig,
+  password: '[REDACTED]',
+  connectionString: connectionString ? '[REDACTED]' : undefined
 });
 
-// Create the pool with the configuration
-const pool = new Pool(poolConfig);
+let pool;
+try {
+  pool = new Pool(finalConfig);
+  console.log('Pool created successfully');
+} catch (err) {
+  console.error('Error creating pool:', err);
+  process.exit(1);
+}
 
-// Error handling for the pool itself
+// Enhanced error handling
 pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client:', err);
-  // Optionally close the client
+  console.error('Unexpected error on idle client:', {
+    error: err.message,
+    code: err.code,
+    stack: err.stack
+  });
   if (client) {
-    client.release(true); // Force close the client
+    client.release(true);
   }
 });
 
-// Connection handling
-pool.on('connect', client => {
-  console.log('New client connected to pool');
-});
+// Connection monitoring
+pool.on('connect', () => console.log('New database connection established'));
+pool.on('acquire', () => console.log('Database connection acquired from pool'));
+pool.on('remove', () => console.log('Database connection removed from pool'));
 
-pool.on('acquire', client => {
-  console.log('Client acquired from pool');
-});
-
-pool.on('remove', client => {
-  console.log('Client removed from pool');
-});
-
-// Test the connection and export utilities
-const query = async (text, params) => {
-  const client = await pool.connect();
-  try {
-    const result = await client.query(text, params);
-    return result;
-  } finally {
-    client.release();
+// Wrapped query function with retries
+const query = async (text, params, retries = 3) => {
+  let lastError;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const client = await pool.connect();
+      try {
+        console.log(`Executing query (attempt ${i + 1}):`, text);
+        const start = Date.now();
+        const result = await client.query(text, params);
+        const duration = Date.now() - start;
+        console.log(`Query completed in ${duration}ms`);
+        return result;
+      } finally {
+        client.release();
+      }
+    } catch (err) {
+      lastError = err;
+      console.error(`Query attempt ${i + 1} failed:`, {
+        error: err.message,
+        code: err.code
+      });
+      // Wait before retrying
+      if (i < retries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      }
+    }
   }
+  throw lastError;
 };
 
-// Initial connection test
+// Test connection immediately
 (async () => {
   try {
-    const result = await query('SELECT NOW()');
-    console.log('Database connected successfully. Server time:', result.rows[0].now);
+    console.log('Testing database connection...');
+    const result = await query('SELECT NOW()', []);
+    console.log('Database connection test successful:', result.rows[0]);
   } catch (err) {
-    console.error('Error connecting to the database:', err);
-    process.exit(1); // Exit if we can't connect to the database
+    console.error('Initial database connection test failed:', {
+      error: err.message,
+      code: err.code,
+      stack: err.stack
+    });
+    // Don't exit here - let the application handle reconnection
   }
 })();
 
-// Export both the pool and a query utility
 module.exports = {
   query,
   pool,
-  // Helper function for transactions
   getClient: async () => {
     const client = await pool.connect();
     const originalQuery = client.query.bind(client);
     const release = client.release.bind(client);
 
-    // Set a timeout of 5 seconds on client queries
     const timeout = setTimeout(() => {
       console.error('A client has been checked out for too long.');
       console.error(`The last executed query on this client was: ${client.lastQuery}`);
     }, 5000);
 
-    // Monkey patch the query method to keep track of the last query executed
     client.query = (...args) => {
       client.lastQuery = args;
       return originalQuery(...args);
@@ -99,7 +136,6 @@ module.exports = {
 
     client.release = () => {
       clearTimeout(timeout);
-      // Clear last query before releasing
       client.query = originalQuery;
       client.lastQuery = null;
       return release();

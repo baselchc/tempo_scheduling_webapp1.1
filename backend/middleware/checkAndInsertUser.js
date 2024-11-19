@@ -1,7 +1,10 @@
-const { supabase } = require('../database/supabaseClient'); // Ensure path is correct
+// backend/middleware/checkAndInsertUser.js
 
-// Middleware to check if a user exists in the database and insert if not
+const { pool } = require('../database/db');
+
 const checkAndInsertUser = async (req, res, next) => {
+  const client = await pool.connect();
+  
   try {
     if (!req.auth || !req.auth.userId) {
       console.log('No authentication found in request');
@@ -10,45 +13,72 @@ const checkAndInsertUser = async (req, res, next) => {
 
     console.log('Checking user in database for Clerk userId:', req.auth.userId);
 
-    const { data: user, error: fetchError } = await supabase
-      .from('users')
-      .select('*')
-      .eq('clerk_user_id', req.auth.userId)
-      .single();
+    await client.query('BEGIN');
 
-    if (fetchError) {
-      console.error('Error fetching user from Supabase:', fetchError);
-      return res.status(500).json({ error: 'Failed to check user existence' });
-    }
+    // Check if user exists
+    const { rows } = await client.query(
+      'SELECT * FROM users WHERE clerk_user_id = $1',
+      [req.auth.userId]
+    );
 
-    if (!user) {
-      const { email, username } = req.auth; // Confirm fields are populated
-      if (!email || !username) {
-        console.warn('Email or username missing from Clerk auth data:', { email, username });
+    if (rows.length === 0) {
+      const { email_addresses, username, firstName, lastName } = req.auth;
+      const email = email_addresses?.[0]?.email_address;
+
+      if (!email) {
+        console.warn('Email missing from Clerk auth data');
+        return res.status(400).json({ error: 'Email is required' });
       }
 
-      const { error: insertError } = await supabase
-        .from('users')
-        .insert({
-          clerk_user_id: req.auth.userId,
+      console.log('Creating new user:', {
+        clerk_user_id: req.auth.userId,
+        email,
+        username,
+        firstName,
+        lastName
+      });
+
+      // Insert new user with all available fields
+      const result = await client.query(
+        `INSERT INTO users (
+          clerk_user_id,
           email,
           username,
-        });
+          first_name,
+          last_name,
+          role,
+          is_whitelisted
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, email, role`,
+        [
+          req.auth.userId,
+          email,
+          username || email.split('@')[0], // Fallback username if not provided
+          firstName || '',
+          lastName || '',
+          'employee', // Default role
+          false // Default whitelist status
+        ]
+      );
 
-      if (insertError) {
-        console.error('Error inserting new user in Supabase:', insertError);
-        return res.status(500).json({ error: 'Failed to insert user' });
-      }
-
-      console.log('New user inserted:', req.auth.userId);
+      console.log('New user inserted:', result.rows[0]);
+      await client.query('COMMIT');
     } else {
-      console.log('User already exists:', req.auth.userId);
+      console.log('User already exists:', rows[0]);
     }
 
     next();
   } catch (error) {
-    console.error('Unexpected error in checkAndInsertUser middleware:', error);
+    await client.query('ROLLBACK');
+    console.error('Error in checkAndInsertUser middleware:', error);
+    
+    if (error.constraint === 'users_email_unique') {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    
     return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    client.release();
   }
 };
 

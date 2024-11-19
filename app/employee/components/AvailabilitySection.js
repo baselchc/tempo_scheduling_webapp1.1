@@ -1,3 +1,5 @@
+// app/employee/components/AvailabilitySection.js
+
 "use client";
 
 import { Clock } from "lucide-react";

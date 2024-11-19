@@ -1,3 +1,5 @@
+-- // backend/database/schema.sql
+
 -- Users table
 
 CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,
@@ -218,3 +220,23 @@ CREATE TRIGGER update_notifications_timestamp
 BEFORE
 UPDATE ON notifications
 FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE INDEX IF NOT EXISTS idx_schedules_week ON schedules(date);
+
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_date ON notifications(user_id, created_at);
+
+-- List all indices for verification
+SELECT 
+    schemaname as schema,
+    tablename as table,
+    indexname as index,
+    indexdef as definition
+FROM 
+    pg_indexes
+WHERE 
+    schemaname = 'public'
+ORDER BY 
+    tablename,
+    indexname;

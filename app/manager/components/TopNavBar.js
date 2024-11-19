@@ -1,4 +1,4 @@
-// components/TopNavBar.js
+// app/manager/components/TopNavBar.js
 import React, { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBell, faUserCircle } from '@fortawesome/free-solid-svg-icons';

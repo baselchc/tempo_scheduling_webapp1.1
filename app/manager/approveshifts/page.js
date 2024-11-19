@@ -1,3 +1,5 @@
+// app/manager/aproveshifts/page.js
+
 export default function ApproveShiftsPage() {    
   return (
     <div>

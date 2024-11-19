@@ -1,3 +1,5 @@
+// app/pages.js
+
 "use client";
 
 import { SignUpButton, SignedOut, useAuth } from '@clerk/nextjs';

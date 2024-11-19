@@ -1,3 +1,5 @@
+// backend/middleware/errorHandler.js
+
 const errorHandler = (err, req, res, next) => {
     // Log the error with timestamp and request details
     console.error('Error occurred at:', new Date().toISOString());

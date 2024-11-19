@@ -1,13 +1,11 @@
 "use client";
-
-import { useUser, useAuth } from "@clerk/nextjs";
-import { useState, useEffect } from "react";
-import NavBar from "./components/NavBar";
-import { Notifications, CheckCircleOutline } from "@mui/icons-material"; // Import CheckCircleOutline icon
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { supabase } from "../../backend/database/supabaseClient";
-import { format, addDays, subDays, parseISO, isSameDay } from "date-fns";
+import { useUser, useAuth } from '@clerk/nextjs';
+import { useState, useEffect, useCallback } from 'react';
+import { format, addDays, subDays } from 'date-fns';
+import NavBar from './components/NavBar';
+import { Notifications } from '@mui/icons-material';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function ManagerDashboard() {
   const { signOut, getToken } = useAuth();
@@ -16,184 +14,116 @@ export default function ManagerDashboard() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState("/images/default-avatar.png");
-  const [code, setCode] = useState("");
-  const [storedCode, setStoredCode] = useState(localStorage.getItem("storedCode") || "1111");
   const [userSchedules, setUserSchedules] = useState([]);
   const [weekStartDate, setWeekStartDate] = useState(new Date());
   const [notifications, setNotifications] = useState([]);
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-  };
+  // Menu toggle functions with useCallback
+  const toggleMenu = useCallback(() => setMenuOpen(prev => !prev), []);
+  const toggleNotifications = useCallback(() => setNotificationsOpen(prev => !prev), []);
+  const toggleProfileMenu = useCallback(() => setProfileMenuOpen(prev => !prev), []);
 
-  const toggleNotifications = () => {
-    setNotificationsOpen(!notificationsOpen);
-  };
+  // Process schedule data
+  const processScheduleData = useCallback((scheduleData) => {
+    const employeeSchedules = new Map();
 
-  const toggleProfileMenu = () => {
-    setProfileMenuOpen(!profileMenuOpen);
-  };
-
-  const handleCodeChange = () => {
-    localStorage.setItem("storedCode", code);
-    setStoredCode(code);
-    setCode("");
-  };
-
-  // Fetch profile image
-  useEffect(() => {
-    const fetchUserProfileImage = async () => {
-      try {
-        const token = await getToken();
-        const response = await fetch("/api/users/profile", {
-          headers: { Authorization: `Bearer ${token}` },
+    scheduleData.forEach(schedule => {
+      if (!employeeSchedules.has(schedule.employee_id)) {
+        employeeSchedules.set(schedule.employee_id, {
+          userId: schedule.employee_id,
+          userName: `${schedule.first_name} ${schedule.last_name}`,
+          shifts: Array(7).fill("Off")
         });
-
-        const data = await response.json();
-        setProfileImageUrl(
-          response.ok && data.profileImageUrl
-            ? `${data.profileImageUrl}?t=${new Date().getTime()}`
-            : "/images/default-avatar.png"
-        );
-      } catch (error) {
-        console.error("Error fetching profile image:", error);
-      }
-    };
-
-    if (user) fetchUserProfileImage();
-  }, [user, getToken]);
-
-  // Fetch notifications
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
-
-      const { data: userRecord, error: userError } = await supabase
-        .from("users")
-        .select("id")
-        .eq("clerk_user_id", user.id)
-        .single();
-
-      if (userError || !userRecord) {
-        console.error("Error fetching user record:", userError.message);
-        return;
       }
 
-      const userId = userRecord.id;
-
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("id, message, is_read")
-        .or(`to_user_id.eq.${userId},broadcast.eq.true`)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.error("Error fetching notifications:", error.message);
-      } else {
-        setNotifications(data || []);
-      }
-    };
-
-    fetchNotifications();
-  }, [user]);
-
-  // Count unread notifications
-  const unreadNotificationCount = notifications.filter(n => !n.is_read).length;
-
-  const fetchData = async (startOfWeek) => {
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("id, first_name, last_name, clerk_user_id");
-
-    if (usersError) {
-      console.error("Error fetching users:", usersError.message);
-      return;
-    }
-
-    const { data: shifts, error: shiftsError } = await supabase
-      .from("my_shifts")
-      .select("user_id, shift_start, shift_end");
-
-    if (shiftsError) {
-      console.error("Error fetching shifts:", shiftsError.message);
-      return;
-    }
-
-    const weeklySchedules = users.map((user) => {
-      const shiftsForUser = Array(7).fill("Off");
-
-      shifts.forEach((shift) => {
-        if (shift.user_id === user.clerk_user_id) {
-          for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-            const currentDay = new Date(startOfWeek);
-            currentDay.setDate(currentDay.getDate() + dayIndex);
-
-            const shiftStart = parseISO(shift.shift_start);
-            const shiftEnd = parseISO(shift.shift_end);
-
-            if (isSameDay(shiftStart, currentDay)) {
-              const shiftTimeRange = `${format(shiftStart, "hh:mm a")} - ${format(shiftEnd, "hh:mm a")}`;
-              shiftsForUser[dayIndex] = shiftTimeRange;
-            }
-          }
-        }
-      });
-
-      return {
-        userName: `${user.first_name} ${user.last_name}`,
-        shifts: shiftsForUser,
-        userId: user.id,
-      };
+      const dayIndex = new Date(schedule.date).getDay();
+      const currentSchedule = employeeSchedules.get(schedule.employee_id);
+      currentSchedule.shifts[dayIndex] = `${schedule.shift_type} (${schedule.status})`;
     });
 
-    setUserSchedules(weeklySchedules);
-  };
+    return Array.from(employeeSchedules.values());
+  }, []);
+
+  // Fetch weekly schedule data
+  const fetchWeeklySchedule = useCallback(async (startDate) => {
+    if (!user) return;
+
+    setLoading(true);
+    setError(null);
+    try {
+      const token = await getToken();
+      const response = await fetch(
+        `/api/schedule/weekly-schedule/${user?.id}?week_start=${format(startDate, 'yyyy-MM-dd')}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Cache-Control': 'no-cache'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch schedule');
+      }
+
+      const data = await response.json();
+      setUserSchedules(processScheduleData(data));
+    } catch (err) {
+      console.error('Error fetching schedule:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user, getToken, processScheduleData]);
+
+  // Fetch profile image
+  const fetchUserProfileImage = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const token = await getToken();
+      const response = await fetch("/api/users/profile", {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Cache-Control': 'no-cache'
+        },
+      });
+
+      const data = await response.json();
+      setProfileImageUrl(
+        response.ok && data.profileImageUrl
+          ? `${data.profileImageUrl}?t=${new Date().getTime()}`
+          : "/images/default-avatar.png"
+      );
+    } catch (error) {
+      console.error("Error fetching profile image:", error);
+    }
+  }, [user, getToken]);
+
+  // Navigation handlers
+  const handlePreviousWeek = useCallback(() => {
+    setWeekStartDate(prevDate => subDays(prevDate, 7));
+  }, []);
+
+  const handleNextWeek = useCallback(() => {
+    setWeekStartDate(prevDate => addDays(prevDate, 7));
+  }, []);
+
+  // Effects
+  useEffect(() => {
+    fetchUserProfileImage();
+  }, [fetchUserProfileImage]);
 
   useEffect(() => {
-    const startOfWeek = new Date(weekStartDate);
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
-    fetchData(startOfWeek);
-  }, [weekStartDate]);
-
-  const monthName = format(weekStartDate, "MMMM");
-  const weekDaysWithDates = Array.from({ length: 7 }).map((_, index) => {
-    const day = addDays(weekStartDate, index - weekStartDate.getDay());
-    return {
-      dayOfWeek: format(day, "EEEE"),
-      dayOfMonth: format(day, "d"),
-    };
-  });
-
-  const handlePreviousWeek = () => {
-    setWeekStartDate((prevDate) => subDays(prevDate, 7));
-  };
-
-  const handleNextWeek = () => {
-    setWeekStartDate((prevDate) => addDays(prevDate, 7));
-  };
-
-  const markAsRead = async (notificationId) => {
-    const { error } = await supabase
-      .from("notifications")
-      .update({ is_read: true })
-      .eq("id", notificationId);
-
-    if (error) {
-      console.error("Error marking notification as read:", error.message);
-    } else {
-      setNotifications((prevNotifications) =>
-        prevNotifications.map((n) =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        )
-      );
+    if (user) {
+      const startOfWeek = new Date(weekStartDate);
+      startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+      fetchWeeklySchedule(startOfWeek);
     }
-  };
-
-  const handleNotificationClick = async (notificationId) => {
-    await markAsRead(notificationId);
-    router.push("/manager/messages");
-  };
+  }, [weekStartDate, user, fetchWeeklySchedule]);
 
   return (
     <div className="relative min-h-screen text-black">
@@ -203,36 +133,29 @@ export default function ManagerDashboard() {
         layout="fill"
         objectFit="cover"
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
+        priority
       />
 
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
 
       <div className="absolute top-4 right-8 flex items-center gap-4 z-50">
-        <button onClick={toggleNotifications} className="relative">
+        <button 
+          onClick={toggleNotifications} 
+          className="relative"
+          aria-label="Toggle notifications"
+        >
           <Notifications className="text-white text-4xl cursor-pointer" />
-          {unreadNotificationCount > 0 && (
+          {notifications.length > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs w-5 h-4 flex items-center justify-center">
-              {unreadNotificationCount}
+              {notifications.length}
             </span>
           )}
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
               {notifications.length > 0 ? (
                 notifications.map((notification) => (
-                  <div key={notification.id} className="mb-2 flex items-center justify-between">
-                    <p
-                      onClick={() => handleNotificationClick(notification.id)}
-                      className="cursor-pointer hover:text-blue-600"
-                    >
-                      {notification.message}
-                    </p>
-                    {!notification.is_read && (
-                      <CheckCircleOutline
-                        onClick={() => markAsRead(notification.id)}
-                        className="text-gray-400 cursor-pointer hover:text-black"
-                        titleAccess="Mark as read"
-                      />
-                    )}
+                  <div key={notification.id} className="mb-2">
+                    <p>{notification.message}</p>
                   </div>
                 ))
               ) : (
@@ -242,11 +165,15 @@ export default function ManagerDashboard() {
           )}
         </button>
 
-        <button onClick={toggleProfileMenu} className="flex items-center gap-2">
+        <button 
+          onClick={toggleProfileMenu} 
+          className="flex items-center gap-2"
+          aria-label="Toggle profile menu"
+        >
           <Image
             className="rounded-full"
             src={profileImageUrl}
-            alt="Profile image"
+            alt="Profile"
             width={40}
             height={40}
           />
@@ -260,41 +187,71 @@ export default function ManagerDashboard() {
         <h1 className="text-4xl font-bold text-left text-white mb-8">
           Welcome to the Manager Dashboard
         </h1>
-        <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-4">
-          <button onClick={handlePreviousWeek}>{"<"}</button>
-          {`Weekly Employee Schedule - ${monthName}`}
-          <button onClick={handleNextWeek}>{">"}</button>
-        </h2>
+        
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white flex items-center gap-4">
+            <button 
+              onClick={handlePreviousWeek}
+              className="hover:bg-white/20 p-2 rounded transition-colors"
+              aria-label="Previous week"
+            >
+              {"←"}
+            </button>
+            {`Weekly Employee Schedule - ${format(weekStartDate, "MMMM")}`}
+            <button 
+              onClick={handleNextWeek}
+              className="hover:bg-white/20 p-2 rounded transition-colors"
+              aria-label="Next week"
+            >
+              {"→"}
+            </button>
+          </h2>
+        </div>
+
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4" role="alert">
+            {error}
+          </div>
+        )}
 
         <div className="bg-white p-6 rounded-lg shadow-md">
-          <table className="w-full text-center">
-            <thead>
-              <tr>
-                <th className="text-left p-4">Employee</th>
-                {weekDaysWithDates.map(({ dayOfWeek, dayOfMonth }, index) => (
-                  <th key={index} className="p-4">{`${dayOfWeek} ${dayOfMonth}`}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {userSchedules.map((user) => (
-                <tr key={user.userId}>
-                  <td className="text-left p-4 border-b">{user.userName}</td>
-                  {user.shifts.map((shift, shiftIndex) => (
-                    <td key={shiftIndex} className="p-4 border-b">
-                      {shift}
-                    </td>
+          {loading ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-center">
+                <thead>
+                  <tr>
+                    <th className="text-left p-4">Employee</th>
+                    {Array.from({ length: 7 }).map((_, index) => {
+                      const day = addDays(weekStartDate, index - weekStartDate.getDay());
+                      return (
+                        <th key={index} className="p-4">
+                          {format(day, "EEE do")}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  {userSchedules.map((user) => (
+                    <tr key={user.userId}>
+                      <td className="text-left p-4 border-b">{user.userName}</td>
+                      {user.shifts.map((shift, shiftIndex) => (
+                        <td key={shiftIndex} className="p-4 border-b">
+                          {shift}
+                        </td>
+                      ))}
+                    </tr>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
-
- {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
-  add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
-  tab and allow a view of Available Shifts and Open Shifts.*/}
