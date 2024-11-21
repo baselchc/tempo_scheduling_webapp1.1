@@ -6,6 +6,8 @@ import NavBar from '../components/NavBar';
 import { Notifications } from '@mui/icons-material';
 import Image from 'next/image';
 import { supabase } from '../../../backend/database/supabaseClient';
+import { toast, ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function CreateSchedulePage() {
   const { signOut, getToken } = useAuth();
@@ -16,6 +18,7 @@ export default function CreateSchedulePage() {
   const [notifications, setNotifications] = useState([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(true); // Spinner state
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [shiftStart, setShiftStart] = useState('');
   const [shiftEnd, setShiftEnd] = useState('');
@@ -85,25 +88,37 @@ export default function CreateSchedulePage() {
   // Fetch employees for the dropdown
   useEffect(() => {
     const fetchEmployees = async () => {
+      setLoadingEmployees(true); // Show spinner
       const { data, error } = await supabase
         .from('users')
         .select('id, first_name, last_name');
 
       if (error) {
         console.error('Error fetching employees:', error.message);
+        toast.error('Failed to load employees.');
       } else {
         setEmployees(data || []);
       }
+      setLoadingEmployees(false); // Hide spinner
     };
 
     fetchEmployees();
   }, []);
 
+  useEffect(() => {
+    // Auto-fill shift end time (e.g., 8 hours after start)
+    if (shiftStart) {
+      const startTime = new Date(shiftStart);
+      startTime.setHours(startTime.getHours() + 8);
+      setShiftEnd(startTime.toISOString().slice(0, 16));
+    }
+  }, [shiftStart]);
+
   const handleScheduleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!selectedEmployee || !shiftStart || !shiftEnd || !weekPeriod) {
-      alert("Please fill in all required fields.");
+      toast.warn('Please fill in all required fields.');
       return;
     }
 
@@ -120,9 +135,9 @@ export default function CreateSchedulePage() {
 
     if (error) {
       console.error('Error creating schedule:', error.message);
-      alert("An error occurred while creating the schedule.");
+      toast.error('An error occurred while creating the schedule.');
     } else {
-      alert("Schedule created successfully!");
+      toast.success('Schedule created successfully!');
       setShiftStart('');
       setShiftEnd('');
       setReason('');
@@ -133,6 +148,7 @@ export default function CreateSchedulePage() {
 
   return (
     <div className="relative min-h-screen text-black flex">
+      <ToastContainer />
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
         style={{ backgroundImage: `url('/images/loginpagebackground.webp')` }}
@@ -188,33 +204,38 @@ export default function CreateSchedulePage() {
         </div>
 
         <h1 className="text-4xl font-bold text-left text-white mb-8">Create Schedule</h1>
-        
+
         {/* Create Schedule Form */}
         <div className="mt-6 bg-white rounded-lg shadow-lg p-6 text-black">
           <form onSubmit={handleScheduleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="employee" className="block text-gray-700 font-bold mb-2">Select Employee</label>
-              <select
-                id="employee"
-                value={selectedEmployee || ''}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">-- Select Employee --</option>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.first_name} {employee.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {loadingEmployees ? (
+              <p>Loading employees...</p>
+            ) : (
+              <div className="mb-4">
+                <label htmlFor="employee" className="block text-gray-700 font-bold mb-2">Select Employee</label>
+                <select
+                  id="employee"
+                  value={selectedEmployee || ''}
+                  onChange={(e) => setSelectedEmployee(e.target.value)}
+                  className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
+                  required
+                >
+                  <option value="">-- Select Employee --</option>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.first_name} {employee.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="mb-4">
               <label htmlFor="shiftStart" className="block text-gray-700 font-bold mb-2">Shift Start</label>
               <input type="datetime-local" id="shiftStart" value={shiftStart} onChange={(e) => setShiftStart(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500" required />
             </div>
             <div className="mb-4">
-              <label htmlFor="shiftEnd" className="block text-gray-700 font-bold mb-2">Shift End</label>
-              <input type="datetime-local" id="shiftEnd" value={shiftEnd} onChange={(e) => setShiftEnd(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500" required />
+              <label htmlFor="shiftEnd" className="block text-gray-700 font-bold mb-2">Shift End (Auto-filled)</label>
+              <input type="datetime-local" id="shiftEnd" value={shiftEnd} readOnly className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500" />
             </div>
             <div className="mb-4">
               <label htmlFor="reason" className="block text-gray-700 font-bold mb-2">Reason</label>
@@ -233,9 +254,3 @@ export default function CreateSchedulePage() {
     </div>
   );
 }
-
-
-
-
-
-// chatgpt prompt for enhancing :Create a React component with useState and useEffect for scheduling shifts. Use axios to fetch employees (GET /api/employees/get-employees) and submit schedules (POST /api/schedule/create-schedule). Include date/time pickers, auto-fill shift end, and display success/failure messages. Style with Tailwind CSS.
