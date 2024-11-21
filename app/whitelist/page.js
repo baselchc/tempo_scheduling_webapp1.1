@@ -6,10 +6,6 @@ import Image from "next/image";
 import { useRouter } from "next/navigation"; // Import useRouter for navigation
 import { supabase } from '/backend/database/supabaseClient';
 
-const apiUrl = process.env.NODE_ENV === 'production'
-  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
-  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
-
 export default function WhitelistPage() {
   const { user } = useUser();
   const router = useRouter(); // Initialize the router
@@ -18,18 +14,16 @@ export default function WhitelistPage() {
     const checkWhitelistStatus = async () => {
       if (user && user.emailAddresses) {
         try {
-          // Query the Supabase database to check if the user is whitelisted
+        
           const { data, error } = await supabase
             .from("users")
             .select("role, is_whitelisted")
             .eq("email", user.emailAddresses)
-            .single(); // Use .single() to get a single record
+            .single(); 
 
           if (error) throw error;
 
-          // Redirect if the user is whitelisted
           if (data && data.is_whitelisted) {
-            // Redirect based on user role
             if (data.role === 'manager') {
               router.push('/manager');
             } else if (data.role === 'employee') {
@@ -47,9 +41,9 @@ export default function WhitelistPage() {
       }
     };
 
-    // Call the async function within useEffect
+
     checkWhitelistStatus();
-  }, [user, router]); // Run this effect when `user` or `router` changes
+  }, [user, router]);
 
   return (
     <main className="flex flex-col gap-4 justify-center items-center text-center min-h-screen">
@@ -96,3 +90,5 @@ export default function WhitelistPage() {
     </main>
   );
 }
+
+//ChatGPT can you help me fix this query to work
