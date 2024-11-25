@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Calendar, Users } from 'lucide-react';
 import axios from 'axios';
@@ -325,3 +325,4 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
 ModernScheduleCalendar.displayName = 'ModernScheduleCalendar';
 
 export default ModernScheduleCalendar;
+

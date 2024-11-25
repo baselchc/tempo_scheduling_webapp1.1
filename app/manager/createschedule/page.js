@@ -3,7 +3,7 @@ import { useUser, useAuth } from '@clerk/nextjs';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
-import ModernScheduleCalendar from '../components/ModernScheduleCalendar';
+import ModernScheduleCalendar from '../components/SchedulerCalendar';
 
 export default function CreateSchedulePage() {
   const { signOut, getToken } = useAuth();
