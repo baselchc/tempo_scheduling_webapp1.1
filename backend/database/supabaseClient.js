@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Fetch environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = "https://dnleokdzqrvlvivmibrr.supabase.co"
+const supabaseAnonKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubGVva2R6cXJ2bHZpdm1pYnJyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzAwNjYzNjQsImV4cCI6MjA0NTY0MjM2NH0.Pi6QJeWgrqM2Is5cc1NUaDtc8SI1TFD3et0cg5ZiEVc"
 
 // Check if the environment variables are loaded
 if (!supabaseUrl || !supabaseAnonKey) {
