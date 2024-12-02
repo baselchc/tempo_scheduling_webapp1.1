@@ -21,6 +21,7 @@ export default function MessagingPage() {
     if (user) {
       fetchCurrentUserId();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -33,6 +34,7 @@ export default function MessagingPage() {
     if (selectedUserId) {
       fetchMessages();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUserId]);
 
   const fetchCurrentUserId = async () => {
