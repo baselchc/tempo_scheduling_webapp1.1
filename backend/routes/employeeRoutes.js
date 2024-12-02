@@ -1,10 +1,13 @@
 // backend/routes/employeeRoutes.js
+
+// TODO: Add role validation for all routes
+
 const express = require('express');
 const router = express.Router();
 const { pool } = require('../database/db');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
 
-// Get all employees
+// Get all employees and managers
 router.get('/get-employees', ClerkExpressWithAuth(), async (req, res) => {
   const client = await pool.connect();
   try {
@@ -21,8 +24,8 @@ router.get('/get-employees', ClerkExpressWithAuth(), async (req, res) => {
     const { rows } = await client.query(`
       SELECT id, clerk_user_id, first_name, last_name, email, role, phone, created_at
       FROM users
-      WHERE role = 'employee'
-      ORDER BY last_name, first_name
+      WHERE role IN ('employee', 'manager')
+      ORDER BY role DESC, last_name, first_name
     `);
     res.json(rows);
   } catch (error) {

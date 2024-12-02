@@ -60,6 +60,8 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
         1
       ).toISOString();
   
+      console.log('Fetching schedule for month:', monthStr);
+  
       const [employeesResponse, scheduleResponse] = await Promise.all([
         axios.get(`${apiUrl}/api/employees/get-employees`, {
           headers: { Authorization: `Bearer ${token}` }
@@ -69,18 +71,50 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
           headers: { Authorization: `Bearer ${token}` }
         })
       ]);
-
+  
       if (mountedRef.current) {
         const employees = employeesResponse.data || [];
-        setEmployees(employees);
+        console.log('Employees fetched:', employees.map(e => ({
+          id: e.id,
+          name: `${e.first_name} ${e.last_name}`,
+          role: e.role
+        })));
   
-        const formattedSchedule = (scheduleResponse.data || []).map(s => ({
+        const rawSchedule = scheduleResponse.data || [];
+        console.log('Raw schedule data:', rawSchedule.map(s => ({
+          date: s.date,
+          type: s.shift_type,
+          employeeId: s.employee_id
+        })));
+  
+        // Count shifts by type
+        const shiftCounts = rawSchedule.reduce((acc, s) => {
+          acc[s.shift_type] = (acc[s.shift_type] || 0) + 1;
+          return acc;
+        }, {});
+        console.log('Shift counts by type:', shiftCounts);
+  
+        const formattedSchedule = rawSchedule.map(s => ({
           ...s,
           date: new Date(s.date).toISOString().split('T')[0],
           employee: employees.find(e => e.id === s.employee_id)
         }));
   
+        setEmployees(employees);
         setSchedule(formattedSchedule);
+  
+        // Log a sample day's schedule
+        const sampleDate = new Date(monthStr);
+        const sampleDateStr = sampleDate.toISOString().split('T')[0];
+        const sampleDaySchedule = formattedSchedule.filter(s => s.date === sampleDateStr);
+        console.log('Sample day schedule:', {
+          date: sampleDateStr,
+          shifts: sampleDaySchedule.map(s => ({
+            type: s.shift_type,
+            employee: `${s.employee?.first_name} ${s.employee?.last_name}`,
+            employeeId: s.employee_id
+          }))
+        });
       }
     } catch (error) {
       console.error('Calendar fetch error:', error);
@@ -109,8 +143,9 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
 
   const renderScheduledShift = useCallback((shift, employee) => {
     if (!shift || !employee) return null;
-
-    if (employee.role === 'manager') {
+  
+    // Check shift type instead of employee role
+    if (shift.shift_type === 'manager') {
       const timeSlot = timeSlots.manager;
       return (
         <div className={`${timeSlot.color} px-2 py-1 rounded-md border text-xs mb-1 flex flex-col shadow-sm`}>
@@ -145,9 +180,10 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
     const daySchedule = schedule
       .filter(s => s.date === dayString)
       .sort((a, b) => {
-        const order = { morning: 0, afternoon: 1 };
-        return order[a.shift_type] - order[b.shift_type];
+        const order = { manager: 0, morning: 1, afternoon: 2 };
+        return (order[a.shift_type] || 999) - (order[b.shift_type] || 999); 
       });
+
 
       if (daySchedule.length > 0) {
         console.log('Calendar Day:', dayString, {
