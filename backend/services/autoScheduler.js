@@ -1,16 +1,51 @@
+// backend/services/autoScheduler.js
+
 const { google } = require('googleapis');
 const { pool } = require('../database/db');
 
 class AutoScheduler {
   constructor(monthStart) {
-    this.monthStart = new Date(monthStart);
-    this.monthEnd = new Date(this.monthStart.getFullYear(), this.monthStart.getMonth() + 1, 0);
-    this.calendar = null;
+    if (!(monthStart instanceof Date)) {
+      this.monthStart = new Date(monthStart);
+      console.log('Parsed monthStart:', this.monthStart);
+      if (isNaN(this.monthStart.getTime())) {
+        throw new Error('Invalid date provided to AutoScheduler');
+      }
+    } else {
+      this.monthStart = monthStart;
+    }
+    
+    // Ensure we're at the start of the month
+    this.monthStart = new Date(
+      this.monthStart.getFullYear(),
+      this.monthStart.getMonth(),
+      1
+    );
+    
+    this.monthEnd = new Date(
+      this.monthStart.getFullYear(),
+      this.monthStart.getMonth() + 1,
+      0
+    );
+    
+    console.log('AutoScheduler initialized with:', {
+      monthStart: this.monthStart.toISOString(),
+      monthEnd: this.monthEnd.toISOString()
+    });
 
-    // Only try to set up calendar if credentials exist
+    // Constants for scheduling logic
+    this.MAX_WEEKLY_HOURS = 40;
+    this.EMPLOYEES_PER_SHIFT = 2;
+    this.SHIFT_HOURS = 4;
+    this.MANAGER_HOURS = 8;
+
+    this.calendar = this.initializeCalendar();
+  }
+
+  initializeCalendar() {
     if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
       try {
-        this.calendar = google.calendar({
+        return google.calendar({
           version: 'v3',
           auth: new google.auth.GoogleAuth({
             credentials: {
@@ -22,9 +57,10 @@ class AutoScheduler {
         });
       } catch (error) {
         console.log('Google Calendar initialization skipped:', error.message);
-        this.calendar = null;
+        return null;
       }
     }
+    return null;
   }
 
   async createShift(date, shiftType, employee, managerId) {
@@ -36,7 +72,6 @@ class AutoScheduler {
       status: 'scheduled'
     };
 
-    // Only try to create calendar event if calendar was initialized successfully
     if (this.calendar) {
       try {
         const event = {
@@ -60,7 +95,108 @@ class AutoScheduler {
           sendNotifications: true,
         });
       } catch (error) {
-        // Log but don't throw the error
+        console.log('Calendar event creation skipped:', error.message);
+      }
+    }
+
+    return shift;
+  }
+
+  async hasCapacity(date, employeeId, schedule) {
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - date.getDay());
+    weekStart.setHours(0, 0, 0, 0);
+    
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+  
+    const weeklyHours = schedule
+      .filter(shift => 
+        shift.employee_id === employeeId &&
+        new Date(shift.date) >= weekStart &&
+        new Date(shift.date) <= weekEnd
+      )
+      .length * this.SHIFT_HOURS;
+  
+    return (weeklyHours + this.SHIFT_HOURS) <= this.MAX_WEEKLY_HOURS;
+  }
+
+  selectBestEmployee(availableEmployees, employeeHours, currentShifts) {
+    return availableEmployees.sort((a, b) => {
+      // Primary sort by hours worked (less hours = higher priority)
+      const hoursDiff = (employeeHours[a.id] || 0) - (employeeHours[b.id] || 0);
+      
+      // Secondary sort by consecutive days (fewer consecutive days = higher priority)
+      const aConsecutiveDays = this.getConsecutiveDays(a.id, currentShifts);
+      const bConsecutiveDays = this.getConsecutiveDays(b.id, currentShifts);
+      
+      // If hours difference is significant (more than one shift), prioritize by hours
+      if (Math.abs(hoursDiff) > this.SHIFT_HOURS) {
+        return hoursDiff;
+      }
+      
+      // Otherwise, consider consecutive days
+      return aConsecutiveDays - bConsecutiveDays;
+    })[0];
+  }
+
+  getConsecutiveDays(employeeId, shifts) {
+    let consecutiveDays = 0;
+    const today = new Date();
+    
+    // Look at the last 5 days
+    for (let i = 1; i <= 5; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      
+      const hasShift = shifts.some(shift => 
+        shift.employee_id === employeeId && 
+        new Date(shift.date).toDateString() === checkDate.toDateString()
+      );
+      
+      if (hasShift) {
+        consecutiveDays++;
+      } else {
+        break;
+      }
+    }
+    
+    return consecutiveDays;
+  }
+
+  async createManagerShift(date, manager, managerId) {
+    const shift = {
+      date: date.toISOString().split('T')[0],
+      shift_type: 'manager',  // New shift type for managers
+      employee_id: manager.id,
+      manager_id: managerId,
+      status: 'scheduled'
+    };
+
+    if (this.calendar) {
+      try {
+        const event = {
+          summary: `${manager.first_name} ${manager.last_name} - Manager Shift`,
+          description: `Manager ID: ${manager.id}`,
+          start: {
+            dateTime: `${shift.date}T09:00:00`,
+            timeZone: 'America/Edmonton',
+          },
+          end: {
+            dateTime: `${shift.date}T17:00:00`,
+            timeZone: 'America/Edmonton',
+          },
+          attendees: [{ email: manager.email }],
+          status: 'confirmed',
+        };
+
+        await this.calendar.events.insert({
+          calendarId: 'primary',
+          resource: event,
+          sendNotifications: true,
+        });
+      } catch (error) {
         console.log('Calendar event creation skipped:', error.message);
       }
     }
@@ -74,15 +210,15 @@ class AutoScheduler {
       client = await pool.connect();
       await client.query('BEGIN');
   
-      // First clear existing schedules for the month
+      // Clear existing schedule for the month
       await client.query(
         'DELETE FROM schedules WHERE date >= $1 AND date <= $2',
         [this.monthStart.toISOString(), this.monthEnd.toISOString()]
       );
   
-      // Get the manager ID
-      const { rows: managers } = await pool.query(
-        'SELECT id FROM users WHERE role = $1 LIMIT 1',
+      // Get managers
+      const { rows: managers } = await client.query(
+        'SELECT id, first_name, last_name, email FROM users WHERE role = $1',
         ['manager']
       );
   
@@ -90,48 +226,110 @@ class AutoScheduler {
         throw new Error('No manager found in the system');
       }
   
-      const managerId = managers[0].id;
+      // Get employees with availability using fixed date comparison
+      const { rows: employeesWithAvailability } = await client.query(`
+        SELECT 
+          u.id, 
+          u.first_name, 
+          u.last_name, 
+          u.email,
+          u.role,
+          COALESCE(a.monday_morning, false) as monday_morning, 
+          COALESCE(a.monday_afternoon, false) as monday_afternoon,
+          COALESCE(a.tuesday_morning, false) as tuesday_morning, 
+          COALESCE(a.tuesday_afternoon, false) as tuesday_afternoon,
+          COALESCE(a.wednesday_morning, false) as wednesday_morning, 
+          COALESCE(a.wednesday_afternoon, false) as wednesday_afternoon,
+          COALESCE(a.thursday_morning, false) as thursday_morning, 
+          COALESCE(a.thursday_afternoon, false) as thursday_afternoon,
+          COALESCE(a.friday_morning, false) as friday_morning, 
+          COALESCE(a.friday_afternoon, false) as friday_afternoon
+        FROM users u
+        LEFT JOIN LATERAL (
+          SELECT * FROM availability 
+          WHERE user_id = u.id 
+          ORDER BY created_at DESC 
+          LIMIT 1
+        ) a ON true
+        WHERE u.role = 'employee'
+      `);
   
-      // Get all employees
-      const { rows: employees } = await pool.query(
-        'SELECT id, first_name, last_name FROM users WHERE role = $1',
-        ['employee']
-      );
-  
-      console.log('Found employees:', employees.length);
-  
-      if (employees.length === 0) {
+      if (employeesWithAvailability.length === 0) {
         throw new Error('No employees found to generate schedule');
       }
   
       const schedule = [];
       let currentDate = new Date(this.monthStart);
+      const employeeHours = {};
+      let managerIndex = 0;
+
+      // Initialize employee hours
+      employeesWithAvailability.forEach(emp => {
+        employeeHours[emp.id] = 0;
+      });
   
-      // Generate schedule
+      console.log('Found employees with availability:', 
+        employeesWithAvailability.map(emp => ({
+          id: emp.id,
+          name: `${emp.first_name} ${emp.last_name}`,
+          role: emp.role,
+          hasAvailability: Object.keys(emp)
+            .filter(key => key.includes('morning') || key.includes('afternoon'))
+            .some(key => emp[key])
+        }))
+      );
+  
       while (currentDate <= this.monthEnd) {
-        if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) { // Skip weekends
-          // Morning shift
-          schedule.push({
-            date: currentDate.toISOString().split('T')[0],
-            shift_type: 'morning',
-            employee_id: employees[Math.floor(Math.random() * employees.length)].id,
-            manager_id: managerId,
-            status: 'scheduled'
-          });
+        const dayName = this.getDayName(currentDate.getDay()).toLowerCase();
+        
+        // Skip weekends
+        if (dayName !== 'saturday' && dayName !== 'sunday') {
+          // First, schedule a manager for the day
+          const selectedManager = managers[managerIndex];
+          const managerShift = await this.createManagerShift(
+            currentDate,
+            selectedManager,
+            selectedManager.id
+          );
+          schedule.push(managerShift);
+          
+          // Rotate to next manager
+          managerIndex = (managerIndex + 1) % managers.length;
+
+          // Then schedule regular employees
+          for (const shiftType of ['morning', 'afternoon']) {
+            const availabilityKey = `${dayName}_${shiftType}`;
+            let availableEmployees = employeesWithAvailability.filter(employee => {
+              const isAvailable = employee[availabilityKey];
+              const hasCapacity = this.hasCapacity(currentDate, employee.id, schedule);
+              return isAvailable && hasCapacity;
+            });
+
+            for (let i = 0; i < this.EMPLOYEES_PER_SHIFT && availableEmployees.length > 0; i++) {
+              const selectedEmployee = this.selectBestEmployee(
+                availableEmployees, 
+                employeeHours,
+                schedule
+              );
+              
+              const shift = await this.createShift(
+                currentDate, 
+                shiftType, 
+                selectedEmployee, 
+                selectedManager.id // Use the day's manager as manager_id
+              );
   
-          // Afternoon shift
-          schedule.push({
-            date: currentDate.toISOString().split('T')[0],
-            shift_type: 'afternoon',
-            employee_id: employees[Math.floor(Math.random() * employees.length)].id,
-            manager_id: managerId,
-            status: 'scheduled'
-          });
+              schedule.push(shift);
+              employeeHours[selectedEmployee.id] = (employeeHours[selectedEmployee.id] || 0) + this.SHIFT_HOURS;
+              availableEmployees = availableEmployees.filter(emp => emp.id !== selectedEmployee.id);
+            }
+          }
         }
+        
         currentDate.setDate(currentDate.getDate() + 1);
       }
   
-      // Insert the new schedules
+      // Insert all shifts into database
       for (const shift of schedule) {
         await client.query(
           `INSERT INTO schedules (date, shift_type, employee_id, manager_id, status)
@@ -141,20 +339,11 @@ class AutoScheduler {
       }
   
       await client.query('COMMIT');
-  
       return {
         schedule,
-        summary: {
-          totalShifts: schedule.length,
-          startDate: this.monthStart,
-          endDate: this.monthEnd,
-        },
-        employeeHours: employees.reduce((acc, emp) => {
-          acc[emp.id] = schedule.filter(s => s.employee_id === emp.id).length * 4;
-          return acc;
-        }, {})
+        summary: this.generateScheduleSummary(schedule, employeeHours),
+        employeeHours
       };
-  
     } catch (error) {
       if (client) await client.query('ROLLBACK');
       console.error('Schedule generation failed:', error);
@@ -162,23 +351,6 @@ class AutoScheduler {
     } finally {
       if (client) client.release();
     }
-  }
-
-  // Other helper methods remain the same
-  isEmployeeAvailable(employee, day, shift) {
-    const availabilityKey = `${day}_${shift}`;
-    return employee[availabilityKey] !== false;
-  }
-
-  hasCapacity(currentHours) {
-    const MAX_WEEKLY_HOURS = 40;
-    return currentHours < MAX_WEEKLY_HOURS;
-  }
-
-  selectBestEmployee(availableEmployees, employeeHours) {
-    return availableEmployees.sort((a, b) => 
-      employeeHours[a.id] - employeeHours[b.id]
-    )[0];
   }
 
   getDayName(dayIndex) {
@@ -195,7 +367,9 @@ class AutoScheduler {
         shiftsScheduled: schedule.filter(s => s.employee_id === parseInt(empId)).length
       })),
       daysScheduled: new Set(schedule.map(s => s.date)).size,
-      unfilledShifts: schedule.filter(s => !s.employee_id).length
+      unfilledShifts: schedule.filter(s => !s.employee_id).length,
+      averageHoursPerEmployee: Object.values(employeeHours).reduce((a, b) => a + b, 0) / 
+                             Object.keys(employeeHours).length
     };
   }
 }

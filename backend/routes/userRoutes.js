@@ -201,6 +201,7 @@ router.get('/availability', ClerkExpressWithAuth(), async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    // Get current start of week
     const currentDate = new Date();
     const monday = new Date(currentDate);
     monday.setDate(currentDate.getDate() - currentDate.getDay() + 1);
@@ -215,19 +216,25 @@ router.get('/availability', ClerkExpressWithAuth(), async (req, res) => {
     }
     
     const dbUserId = userResult.rows[0].id;
+    
+    // Get most recent availability
     const availabilityQuery = `
       SELECT * FROM availability 
-      WHERE user_id = $1 AND week_start = $2
+      WHERE user_id = $1
+      ORDER BY week_start DESC
+      LIMIT 1
     `;
-    const { rows } = await client.query(availabilityQuery, [dbUserId, monday]);
+    
+    const { rows } = await client.query(availabilityQuery, [dbUserId]);
     
     const availability = {};
     if (rows.length > 0) {
       const row = rows[0];
-      ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'].forEach(day => {
-        availability[day.charAt(0).toUpperCase() + day.slice(1)] = {
-          morning: row[`${day}_morning`] || false,
-          afternoon: row[`${day}_afternoon`] || false
+      ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].forEach(day => {
+        const dayLower = day.toLowerCase();
+        availability[day] = {
+          morning: row[`${dayLower}_morning`] || false,
+          afternoon: row[`${dayLower}_afternoon`] || false
         };
       });
     } else {

@@ -2,7 +2,7 @@
 
 "use client";
 import { useUser, useAuth } from '@clerk/nextjs';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,7 @@ export default function EmployeeProfile() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const mountedRef = useRef(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -34,6 +35,12 @@ export default function EmployeeProfile() {
   const router = useRouter();
 
   const fetchUserProfile = useCallback(async () => {
+    console.log('fetchUserProfile called, mountedRef:', mountedRef.current);
+    if (!mountedRef.current) {
+      console.log('Fetch aborted - component not mounted');
+      return;
+    }
+  
     try {
       const token = await getToken();
       const [profileResponse, availabilityResponse] = await Promise.all([
@@ -48,11 +55,16 @@ export default function EmployeeProfile() {
           }
         })
       ]);
-
+  
+      if (!mountedRef.current) {
+        console.log('Fetch completed but component unmounted, aborting state updates');
+        return;
+      }
+  
       if (!profileResponse.ok) {
         throw new Error(`Failed to fetch profile: ${profileResponse.status}`);
       }
-
+  
       const profileData = await profileResponse.json();
       setFirstName(profileData.firstName || '');
       setLastName(profileData.lastName || '');
@@ -62,24 +74,37 @@ export default function EmployeeProfile() {
       if (profileData.profileImageUrl) {
         setProfileImagePreview(profileData.profileImageUrl);
       }
-
+  
       if (availabilityResponse.ok) {
         const availabilityData = await availabilityResponse.json();
         setAvailability(availabilityData.availability);
       }
-      
-      setIsLoading(false);
+     
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     } catch (err) {
-      setError(`Failed to load profile: ${err.message}`);
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setError(`Failed to load profile: ${err.message}`);
+        setIsLoading(false);
+      }
     }
   }, [getToken]);
 
-  useEffect(() => {
-    if (isLoaded && getToken) {
-      fetchUserProfile();
-    }
-  }, [isLoaded, getToken, fetchUserProfile]);
+useEffect(() => {
+  console.log('Profile effect triggered');
+  mountedRef.current = true;
+
+  if (isLoaded && getToken) {
+    console.log('Conditions met, fetching profile');
+    fetchUserProfile();
+  }
+
+  return () => {
+    console.log('Profile cleanup - unmounting');
+    mountedRef.current = false;
+  };
+}, [isLoaded, getToken, fetchUserProfile]);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);

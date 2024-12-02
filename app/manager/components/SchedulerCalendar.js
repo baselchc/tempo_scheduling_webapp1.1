@@ -26,7 +26,12 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
     afternoon: { 
       label: "Afternoon", 
       time: "1:00 PM - 5:00 PM",
-      color: "bg-purple-100 text-purple-800 border-purple-200"
+      color: "bg-orange-100 text-orange-800 border-orange-200"
+    },
+    manager: {
+      label: "Manager",
+      time: "9:00 AM - 5:00 PM",
+      color: "bg-indigo-100 text-indigo-800 border-indigo-200"
     }
   };
 
@@ -103,7 +108,22 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
   }, [currentDate, onMonthChange]);
 
   const renderScheduledShift = useCallback((shift, employee) => {
-    if (!shift || !timeSlots[shift.shift_type]) return null;
+    if (!shift || !employee) return null;
+
+    if (employee.role === 'manager') {
+      const timeSlot = timeSlots.manager;
+      return (
+        <div className={`${timeSlot.color} px-2 py-1 rounded-md border text-xs mb-1 flex flex-col shadow-sm`}>
+          <span className="font-medium">{timeSlot.label}</span>
+          <span className="truncate">
+            {employee?.first_name} {employee?.last_name}
+          </span>
+          <span className="text-[10px] opacity-75">
+            {timeSlot.time}
+          </span>
+        </div>
+      );
+    }
     
     const timeSlot = timeSlots[shift.shift_type];
     return (
@@ -128,6 +148,17 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
         const order = { morning: 0, afternoon: 1 };
         return order[a.shift_type] - order[b.shift_type];
       });
+
+      if (daySchedule.length > 0) {
+        console.log('Calendar Day:', dayString, {
+          foundShifts: daySchedule.length,
+          shifts: daySchedule.map(s => ({
+            type: s.shift_type,
+            employeeId: s.employee_id,
+            employee: employees.find(e => e.id === s.employee_id)?.first_name
+          }))
+        });
+      }
     
     const isToday = dayString === new Date().toISOString().split('T')[0];
     const isSelected = selectedDay && dayString === selectedDay.toISOString().split('T')[0];
@@ -169,6 +200,16 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
     const selectedDateStr = selectedDay.toISOString().split('T')[0];
     const daySchedule = schedule.filter(s => s.date === selectedDateStr);
     
+    console.log('Sidebar:', selectedDateStr, {
+      allShifts: schedule.length,
+      foundShifts: daySchedule.length,
+      shifts: daySchedule.map(s => ({
+        type: s.shift_type,
+        employeeId: s.employee_id,
+        employee: employees.find(e => e.id === s.employee_id)?.first_name
+      }))
+    });
+
     return (
       <div>
         <h3 className="text-lg font-semibold mb-4">
@@ -180,22 +221,28 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
         </h3>
         <div className="space-y-4">
           {Object.entries(timeSlots).map(([slotType, slot]) => {
-            const shift = daySchedule.find(s => s.shift_type === slotType);
-            const employee = shift ? employees.find(e => e.id === shift.employee_id) : null;
-
+            const shiftsForType = daySchedule.filter(s => s.shift_type === slotType);
+            
             return (
               <div key={slotType} className={`p-3 rounded-lg ${slot.color}`}>
                 <div className="font-medium">{slot.label}</div>
                 <div className="text-sm">{slot.time}</div>
-                {employee ? (
-                  <div className="mt-2 font-medium">
-                    {employee.first_name} {employee.last_name}
-                  </div>
-                ) : (
-                  <div className="mt-2 text-gray-500 italic">
-                    No one scheduled
-                  </div>
-                )}
+                <div className="mt-2">
+                  {shiftsForType.length > 0 ? (
+                    shiftsForType.map((shift, idx) => {
+                      const employee = employees.find(e => e.id === shift.employee_id);
+                      return (
+                        <div key={idx} className="font-medium">
+                          {employee?.first_name} {employee?.last_name}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-gray-500 italic">
+                      No one scheduled
+                    </div>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -308,10 +355,10 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
                 <div key={key} className="flex items-center gap-2">
                   <div className={`w-4 h-4 rounded ${slot.color.split(' ')[0]}`} />
                   <span>{slot.label} ({slot.time})</span>
-                </div>
-              ))}
-            </div>
-          </div>
+                 </div>
+               ))}
+             </div>
+           </div>
 
           <div className="lg:col-span-1 bg-gray-50 p-4 rounded-lg">
             {renderSidebar()}
@@ -325,4 +372,3 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
 ModernScheduleCalendar.displayName = 'ModernScheduleCalendar';
 
 export default ModernScheduleCalendar;
-
