@@ -237,6 +237,7 @@ export default function CreateSchedulePage() {
               <label htmlFor="shiftEnd" className="block text-gray-700 font-bold mb-2">Shift End (Auto-filled)</label>
               <input type="datetime-local" id="shiftEnd" value={shiftEnd} readOnly className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500" />
             </div>
+            
             <div className="mb-4">
               <label htmlFor="reason" className="block text-gray-700 font-bold mb-2">Reason</label>
               <textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500" rows="3"></textarea>
@@ -254,3 +255,4 @@ export default function CreateSchedulePage() {
     </div>
   );
 }
+//chatgpt used: help me make a refined version for this code
