@@ -1,8 +1,9 @@
-// backend/routes/clerkWebhooks.js
+// backend / routes / clerkWebhooks.js
+
 const express = require('express');
 const router = express.Router();
 const { Webhook } = require('svix');
-const db = require('../database/db');
+import { supabaseServer } from '../../lib/supabase-server';
 
 router.post('/', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
@@ -32,7 +33,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
     const wh = new Webhook(webhookSecret);
 
     try {
-      // Get raw body
+      // Get raw body and verify signature
       const rawBody = req.body;
       const payloadString = rawBody.toString('utf8');
       console.log('Raw Webhook Payload:', payloadString);
@@ -50,80 +51,70 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
 
       // Handle user creation
       if (payload.type === 'user.created') {
-        const client = await db.pool.connect();
-        try {
-          await client.query('BEGIN');
-          
-          const { id, email_addresses, first_name, last_name } = payload.data;
-          const email = email_addresses[0]?.email_address;
+        const { id, email_addresses, first_name, last_name } = payload.data;
+        const email = email_addresses[0]?.email_address;
 
-          console.log('Creating new user:', {
+        console.log('Creating new user:', {
+          clerk_user_id: id,
+          email,
+          first_name,
+          last_name
+        });
+
+        const { data: newUser, error: createError } = await supabaseServer
+          .from('users')
+          .upsert({
             clerk_user_id: id,
-            email,
-            first_name,
-            last_name
+            email: email,
+            first_name: first_name,
+            last_name: last_name,
+            role: 'employee'  // Default role as employee
+          }, {
+            onConflict: 'clerk_user_id',
+            returning: 'minimal'
           });
 
-          const result = await client.query(
-            `INSERT INTO users (clerk_user_id, email, first_name, last_name, role)
-             VALUES ($1, $2, $3, $4, $5)
-             ON CONFLICT (clerk_user_id) DO NOTHING
-             RETURNING id`,
-            [id, email, first_name, last_name, 'employee']  // Default role as employee
-          );
-
-          if (result.rows.length > 0) {
-            console.log(`User created successfully with ID: ${result.rows[0].id}`);
-          } else {
-            console.log('User already exists, skipping creation');
-          }
-
-          await client.query('COMMIT');
-        } catch (error) {
-          await client.query('ROLLBACK');
-          console.error('Error creating user in database:', error);
-          throw error;
-        } finally {
-          client.release();
+        if (createError) {
+          console.error('Error creating user in Supabase:', createError);
+          throw createError;
         }
+
+        console.log('User created successfully');
       }
 
       // Handle user deletion
       if (payload.type === 'user.deleted') {
-        const client = await db.pool.connect();
-        try {
-          await client.query('BEGIN');
+        console.log('Attempting to delete user with clerk_user_id:', payload.data.id);
 
-          console.log('Attempting to delete user with clerk_user_id:', payload.data.id);
+        // Get user info before deletion for logging
+        const { data: userData, error: fetchError } = await supabaseServer
+          .from('users')
+          .select('id, first_name, last_name')
+          .eq('clerk_user_id', payload.data.id)
+          .single();
 
-          // Get user info before deletion for logging
-          const userQuery = await client.query(
-            'SELECT id, first_name, last_name FROM users WHERE clerk_user_id = $1',
-            [payload.data.id]
-          );
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          console.error('Error fetching user before deletion:', fetchError);
+          throw fetchError;
+        }
 
-          if (userQuery.rows.length > 0) {
-            const userData = userQuery.rows[0];
-            console.log(`Found user to delete: ${userData.first_name} ${userData.last_name} (ID: ${userData.id})`);
+        if (userData) {
+          console.log(`Found user to delete: ${userData.first_name} ${userData.last_name} (ID: ${userData.id})`);
 
-            // Delete user (CASCADE will handle related records)
-            const deleteResult = await client.query(
-              'DELETE FROM users WHERE clerk_user_id = $1 RETURNING id',
-              [payload.data.id]
-            );
+          // Delete user (Supabase cascade rules will handle related records)
+          const { error: deleteError } = await supabaseServer
+            .from('users')
+            .delete()
+            .eq('clerk_user_id', payload.data.id);
 
-            console.log(`Successfully deleted user and related records. Rows affected:`, deleteResult.rowCount);
-            await client.query('COMMIT');
-          } else {
-            console.log(`No user found in database for clerk_user_id: ${payload.data.id}`);
-            await client.query('ROLLBACK');
+          if (deleteError) {
+            console.error('Error deleting user:', deleteError);
+            throw deleteError;
           }
-        } catch (error) {
-          await client.query('ROLLBACK');
-          console.error('Database error during user deletion:', error);
-          throw error;
-        } finally {
-          client.release();
+
+          console.log('Successfully deleted user and related records');
+        } else {
+          console.log(`No user found in database for clerk_user_id: ${payload.data.id}`);
         }
       }
 
@@ -132,6 +123,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         event: payload.type,
         message: `Successfully processed ${payload.type} event`
       });
+
     } catch (err) {
       console.error('Webhook verification or parsing failed:', err);
       return res.status(400).json({

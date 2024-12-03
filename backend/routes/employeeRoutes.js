@@ -1,107 +1,114 @@
-// backend/routes/employeeRoutes.js
-
-// TODO: Add role validation for all routes
-
 const express = require('express');
 const router = express.Router();
-const { pool } = require('../database/db');
 const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
+import { supabaseServer } from '../../lib/supabase-server';
 
 // Get all employees and managers
 router.get('/get-employees', ClerkExpressWithAuth(), async (req, res) => {
-  const client = await pool.connect();
   try {
-    // Get requesting user's role
-    const { rows: userRows } = await client.query(
-      'SELECT role FROM users WHERE clerk_user_id = $1',
-      [req.auth.userId]
-    );
+    // Check if user is a manager
+    const { data: userData, error: userError } = await supabaseServer
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
 
-    if (!userRows.length || userRows[0].role !== 'manager') {
+    if (userError || !userData || userData.role !== 'manager') {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const { rows } = await client.query(`
-      SELECT id, clerk_user_id, first_name, last_name, email, role, phone, created_at
-      FROM users
-      WHERE role IN ('employee', 'manager')
-      ORDER BY role DESC, last_name, first_name
-    `);
-    res.json(rows);
+    // Get all employees and managers
+    const { data: employees, error: employeesError } = await supabaseServer
+      .from('users')
+      .select('id, clerk_user_id, first_name, last_name, email, role, phone, created_at')
+      .in('role', ['employee', 'manager'])
+      .order('role', { ascending: false })
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+
+    if (employeesError) throw employeesError;
+
+    res.json(employees);
   } catch (error) {
     console.error('Error fetching employees:', error);
-    res.status(500).json({ error: 'Failed to fetch employees' });
-  } finally {
-    client.release();
+    res.status(500).json({ 
+      error: 'Failed to fetch employees',
+      details: error.message 
+    });
   }
 });
 
 // Add new employee
 router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
   const { firstName, lastName, email, phone } = req.body;
-  const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
+    // Validate required fields
+    if (!firstName || !lastName || !email) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
 
-    // Check if requesting user is a manager
-    const { rows: userRows } = await client.query(
-      'SELECT role FROM users WHERE clerk_user_id = $1',
-      [req.auth.userId]
-    );
+    // Check if user is a manager
+    const { data: userData, error: userError } = await supabaseServer
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
 
-    if (!userRows.length || userRows[0].role !== 'manager') {
-      throw new Error('Unauthorized');
+    if (userError || !userData || userData.role !== 'manager') {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
     // Check if email already exists
-    const { rows: existingUser } = await client.query(
-      'SELECT id FROM users WHERE email = $1',
-      [email]
-    );
+    const { data: existingUser, error: existingError } = await supabaseServer
+      .from('users')
+      .select('id')
+      .eq('email', email)
+      .single();
 
-    if (existingUser.length > 0) {
-      throw new Error('Email already exists');
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email already exists' });
     }
 
-    const result = await client.query(
-      `INSERT INTO users (
-        clerk_user_id,
-        first_name,
-        last_name,
-        email,
-        phone,
-        role,
-        is_whitelisted
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, first_name, last_name, email, role`,
-      [
-        `temp_${Date.now()}`, // Temporary clerk_user_id
-        firstName,
-        lastName,
-        email,
-        phone,
-        'employee',
-        true // Auto-whitelist employees added by managers
-      ]
-    );
+    // Insert new employee
+    const { data: newEmployee, error: insertError } = await supabaseServer
+      .from('users')
+      .insert({
+        clerk_user_id: `temp_${Date.now()}`,
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        role: 'employee',
+        is_whitelisted: true
+      })
+      .select()
+      .single();
 
-    // Create notification for new employee
-    await client.query(
-      `INSERT INTO notifications (user_id, message, type)
-       VALUES ($1, $2, 'welcome')`,
-      [result.rows[0].id, `Welcome ${firstName} ${lastName} to the team!`]
-    );
+    if (insertError) throw insertError;
 
-    await client.query('COMMIT');
-    res.json(result.rows[0]);
+    // Create welcome notification
+    const { error: notificationError } = await supabaseServer
+      .from('notifications')
+      .insert({
+        to_user_id: newEmployee.id,
+        message: `Welcome ${firstName} ${lastName} to the team!`,
+        type: 'welcome',
+        broadcast: true
+      });
+
+    if (notificationError) {
+      console.error('Error creating welcome notification:', notificationError);
+      // Continue execution as this is not critical
+    }
+
+    res.json(newEmployee);
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error adding employee:', error);
-    res.status(error.message === 'Unauthorized' ? 403 : 500)
-       .json({ error: error.message || 'Failed to add employee' });
-  } finally {
-    client.release();
+    res.status(500).json({ 
+      error: 'Failed to add employee',
+      details: error.message 
+    });
   }
 });
 
@@ -109,48 +116,69 @@ router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
 router.put('/update-employee/:id', ClerkExpressWithAuth(), async (req, res) => {
   const { id } = req.params;
   const { firstName, lastName, email, phone, role } = req.body;
-  const client = await pool.connect();
   
   try {
-    await client.query('BEGIN');
-    
-    // Check if requesting user is a manager
-    const { rows: userRows } = await client.query(
-      'SELECT role FROM users WHERE clerk_user_id = $1',
-      [req.auth.userId]
-    );
+    // Check if user is a manager
+    const { data: userData, error: userError } = await supabaseServer
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
 
-    if (!userRows.length || userRows[0].role !== 'manager') {
-      throw new Error('Unauthorized');
+    if (userError || !userData || userData.role !== 'manager') {
+      return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const result = await client.query(
-      `UPDATE users 
-       SET first_name = $1,
-           last_name = $2,
-           email = $3,
-           phone = $4,
-           role = $5,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $6
-       RETURNING id, first_name, last_name, email, role`,
-      [firstName, lastName, email, phone, role, id]
-    );
-
-    if (result.rows.length === 0) {
-      throw new Error('Employee not found');
+    // Validate role
+    if (role && !['employee', 'manager'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
     }
 
-    await client.query('COMMIT');
-    res.json(result.rows[0]);
+    // Check if email already exists for different user
+    if (email) {
+      const { data: existingUser, error: existingError } = await supabaseServer
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .neq('id', id)
+        .single();
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+    }
+
+    // Update employee
+    const { data: updatedEmployee, error: updateError } = await supabaseServer
+      .from('users')
+      .update({
+        first_name: firstName,
+        last_name: lastName,
+        email: email,
+        phone: phone,
+        role: role,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    if (!updatedEmployee) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+
+    res.json(updatedEmployee);
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error updating employee:', error);
-    res.status(error.message === 'Unauthorized' ? 403 :
-               error.message === 'Employee not found' ? 404 : 500)
-       .json({ error: error.message || 'Failed to update employee' });
-  } finally {
-    client.release();
+    res.status(
+      error.message.includes('not found') ? 404 :
+      error.message.includes('Unauthorized') ? 403 : 500
+    ).json({ 
+      error: 'Failed to update employee',
+      details: error.message 
+    });
   }
 });
 

@@ -1,4 +1,6 @@
-// backend/database/db.js
+8// backend/database/db.js
+
+/*
 
 const { Pool } = require('pg');
 const path = require('path');
@@ -144,3 +146,5 @@ module.exports = {
     return client;
   }
 };
+
+*/

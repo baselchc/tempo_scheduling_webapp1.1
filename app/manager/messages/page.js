@@ -8,7 +8,7 @@ import NavBar from "../components/NavBar";
 import { Notifications } from "@mui/icons-material";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { supabase } from "../../../backend/database/supabaseClient";
+import { supabase } from '../../../lib/supabase-browser'
 import { AnimatePresence, motion } from "framer-motion";
 
 export default function MessagesPage() {

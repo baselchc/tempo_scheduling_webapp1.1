@@ -4,18 +4,19 @@ const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const errorHandler = require('./middleware/errorHandler');
+import { supabaseServer } from '../../lib/supabase-server';
 
-// Import route handlers and database configuration
+// Import route handlers
 const userRoutes = require('./routes/userRoutes');
 const clerkWebhooks = require('./routes/clerkWebhooks');
 const scheduleRoutes = require('./routes/scheduleRoutes');
-const employeeRoutes = require('./routes/employeeRoutes'); // Add employee routes
-const { pool } = require('./database/db');
+const employeeRoutes = require('./routes/employeeRoutes');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 console.log('Environment:', process.env.NODE_ENV);
 console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
+console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'is set' : 'is NOT set');
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..') });
@@ -38,8 +39,23 @@ const setupServer = async () => {
   }));
 
   // Health check endpoint
-  app.get('/health', (req, res) => {
-    res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  app.get('/health', async (req, res) => {
+    try {
+      const { data, error } = await supabaseServer.from('users').select('count').single();
+      if (error) throw error;
+      res.json({ 
+        status: 'OK', 
+        timestamp: new Date().toISOString(),
+        database: 'Connected'
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'ERROR',
+        timestamp: new Date().toISOString(),
+        database: 'Disconnected',
+        error: error.message
+      });
+    }
   });
 
   // Middleware
@@ -47,21 +63,25 @@ const setupServer = async () => {
   app.use(bodyParser.json({ limit: '1mb' }));
   app.use(bodyParser.urlencoded({ extended: true, limit: '1mb' }));
 
-  // API Routes - make sure these are before the catch-all route
+  // API Routes
   app.use('/api/users', userRoutes);
   app.use('/api/schedule', scheduleRoutes);
-  app.use('/api/employees', employeeRoutes); // Add employee routes
+  app.use('/api/employees', employeeRoutes);
 
   // Test database connection
   try {
-    const res = await pool.query('SELECT NOW()');
-    console.log('Database connection successful. Current time:', res.rows[0].now);
+    const { data, error } = await supabaseServer
+      .from('users')
+      .select('count')
+      .single();
+    
+    if (error) throw error;
+    console.log('Supabase connection successful');
   } catch (err) {
-    console.error('Error connecting to the database:', err);
-    // Don't exit here, but log the error
+    console.error('Error connecting to Supabase:', err);
   }
 
-  // Add request logging in development
+  // Development logging
   if (dev) {
     app.use((req, res, next) => {
       console.log(`${req.method} ${req.url}`);
@@ -69,12 +89,12 @@ const setupServer = async () => {
     });
   }
 
-  // Handle Next.js requests - this should be after API routes
+  // Next.js handler
   app.all('*', (req, res) => {
     return handle(req, res);
   });
 
-  // Error handling middleware - must be last
+  // Error handling
   app.use(errorHandler);
 
   return app;
@@ -88,22 +108,20 @@ if (require.main === module) {
     server = app.listen(port, (err) => {
       if (err) throw err;
       console.log(`> Server ready on http://localhost:${port}`);
-      console.log('> Database server and Clerk webhooks are active');
+      console.log('> Supabase and Clerk webhooks are active');
       console.log(`> Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
     });
 
-    // Handle server errors
     server.on('error', (err) => {
       console.error('Server error:', err);
     });
-
   }).catch(err => {
     console.error('Failed to start server:', err);
     process.exit(1);
   });
 }
 
-// Enhanced graceful shutdown
+// Graceful shutdown
 const cleanup = async (signal) => {
   console.log(`${signal} received, shutting down gracefully`);
   try {
@@ -112,11 +130,6 @@ const cleanup = async (signal) => {
       await new Promise((resolve) => server.close(resolve));
       console.log('HTTP server closed');
     }
-
-    console.log('Closing database pool...');
-    await pool.end();
-    console.log('Database pool closed');
-
     process.exit(0);
   } catch (err) {
     console.error('Error during shutdown:', err);
@@ -126,14 +139,10 @@ const cleanup = async (signal) => {
 
 process.on('SIGTERM', () => cleanup('SIGTERM'));
 process.on('SIGINT', () => cleanup('SIGINT'));
-
-// Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
   console.error('Uncaught Exception:', err);
   cleanup('UNCAUGHT_EXCEPTION');
 });
-
-// Handle unhandled promise rejections
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });

@@ -1,6 +1,6 @@
 // backend/middleware/checkRole.js
 
-const db = require('../database/db');
+import { supabaseServer } from '../../lib/supabase-server';
 
 const checkRole = (allowedRoles) => {
   return async (req, res, next) => {
@@ -8,28 +8,37 @@ const checkRole = (allowedRoles) => {
       // Get the user ID from Clerk auth
       const userId = req.auth.userId;
 
-      // Query database to get user's role
-      const { rows } = await db.query(
-        'SELECT role FROM users WHERE clerk_user_id = $1', 
-        [userId]
-      );
-      
-      if (rows.length === 0) {
+      // Query Supabase to get user's role
+      const { data: userData, error } = await supabaseServer
+        .from('users')
+        .select('role')
+        .eq('clerk_user_id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user role:', error);
+        return res.status(500).json({ error: 'Internal server error' });
+      }
+
+      if (!userData) {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      const userRole = rows[0].role;
-      
       // Check if user's role is in the allowed roles array
-      if (allowedRoles.includes(userRole)) {
+      if (allowedRoles.includes(userData.role)) {
         next();
       } else {
-        res.status(403).json({ error: 'Access denied. Insufficient permissions.' });
+        res.status(403).json({ 
+          error: 'Access denied',
+          message: 'Insufficient permissions'
+        });
       }
-
     } catch (error) {
       console.error('Error checking user role:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ 
+        error: 'Internal server error',
+        details: error.message
+      });
     }
   };
 };

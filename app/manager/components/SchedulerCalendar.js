@@ -1,3 +1,5 @@
+// app / manager / components / SchedulerCalendar.js
+
 import React, { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { useUser, useAuth } from "@clerk/nextjs";
 import { Calendar, Users } from 'lucide-react';

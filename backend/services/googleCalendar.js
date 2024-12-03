@@ -1,5 +1,7 @@
 //backend/services/googleCalendar.js
 
+/*
+
 const db = require('../database/db');
 
 class AutoScheduler {
@@ -150,4 +152,5 @@ class AutoScheduler {
 
 module.exports = AutoScheduler;
 
-//Used claude ai to assist in making code, "steps to making a class for auto making employee schedules"
+
+*/

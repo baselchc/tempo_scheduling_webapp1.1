@@ -2,6 +2,8 @@
 
 -- Users table
 
+/*
+
 CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY,
                                                     clerk_user_id VARCHAR(255) NOT NULL,
                                                                                name VARCHAR(255),
@@ -240,3 +242,5 @@ WHERE
 ORDER BY 
     tablename,
     indexname;
+
+*/

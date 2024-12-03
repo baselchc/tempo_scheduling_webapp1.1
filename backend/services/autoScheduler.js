@@ -1,7 +1,7 @@
 // backend/services/autoScheduler.js
 
 const { google } = require('googleapis');
-const { pool } = require('../database/db');
+import { supabaseServer } from '../../lib/supabase-server';
 
 class AutoScheduler {
   constructor(monthStart) {
@@ -15,7 +15,6 @@ class AutoScheduler {
       this.monthStart = monthStart;
     }
     
-    // Ensure we're at the start of the month
     this.monthStart = new Date(
       this.monthStart.getFullYear(),
       this.monthStart.getMonth(),
@@ -168,7 +167,7 @@ class AutoScheduler {
   async createManagerShift(date, manager, managerId) {
     const shift = {
       date: date.toISOString().split('T')[0],
-      shift_type: 'manager',  // New shift type for managers
+      shift_type: 'manager', 
       employee_id: manager.id,
       manager_id: managerId,
       status: 'scheduled'
@@ -205,86 +204,75 @@ class AutoScheduler {
   }
 
   async generateSchedule() {
-    let client;
     try {
-      client = await pool.connect();
-      await client.query('BEGIN');
-  
       // Clear existing schedule for the month
-      await client.query(
-        'DELETE FROM schedules WHERE date >= $1 AND date <= $2',
-        [this.monthStart.toISOString(), this.monthEnd.toISOString()]
-      );
-  
+      const { error: deleteError } = await supabaseServer
+        .from('schedules')
+        .delete()
+        .gte('date', this.monthStart.toISOString())
+        .lte('date', this.monthEnd.toISOString());
+
+      if (deleteError) throw deleteError;
+
       // Get managers
-      const { rows: managers } = await client.query(
-        'SELECT id, first_name, last_name, email FROM users WHERE role = $1',
-        ['manager']
-      );
-  
-      if (managers.length === 0) {
+      const { data: managers, error: managersError } = await supabaseServer
+        .from('users')
+        .select('id, first_name, last_name, email')
+        .eq('role', 'manager');
+
+      if (managersError) throw managersError;
+      if (!managers.length) {
         throw new Error('No manager found in the system');
       }
-  
-      // Get employees with availability using fixed date comparison
-      const { rows: employeesWithAvailability } = await client.query(`
-        SELECT 
-          u.id, 
-          u.first_name, 
-          u.last_name, 
-          u.email,
-          u.role,
-          COALESCE(a.monday_morning, false) as monday_morning, 
-          COALESCE(a.monday_afternoon, false) as monday_afternoon,
-          COALESCE(a.tuesday_morning, false) as tuesday_morning, 
-          COALESCE(a.tuesday_afternoon, false) as tuesday_afternoon,
-          COALESCE(a.wednesday_morning, false) as wednesday_morning, 
-          COALESCE(a.wednesday_afternoon, false) as wednesday_afternoon,
-          COALESCE(a.thursday_morning, false) as thursday_morning, 
-          COALESCE(a.thursday_afternoon, false) as thursday_afternoon,
-          COALESCE(a.friday_morning, false) as friday_morning, 
-          COALESCE(a.friday_afternoon, false) as friday_afternoon
-        FROM users u
-        LEFT JOIN LATERAL (
-          SELECT * FROM availability 
-          WHERE user_id = u.id 
-          ORDER BY created_at DESC 
-          LIMIT 1
-        ) a ON true
-        WHERE u.role = 'employee'
-      `);
-  
-      if (employeesWithAvailability.length === 0) {
+
+      // Get employees with availability
+      const { data: employees, error: employeesError } = await supabaseServer
+        .from('users')
+        .select(`
+          id,
+          first_name,
+          last_name,
+          email,
+          role,
+          availability (
+            monday_morning,
+            monday_afternoon,
+            tuesday_morning,
+            tuesday_afternoon,
+            wednesday_morning,
+            wednesday_afternoon,
+            thursday_morning,
+            thursday_afternoon,
+            friday_morning,
+            friday_afternoon
+          )
+        `)
+        .eq('role', 'employee');
+
+      if (employeesError) throw employeesError;
+      if (!employees.length) {
         throw new Error('No employees found to generate schedule');
       }
-  
+
+      // Transform employees data to match expected format
+      const employeesWithAvailability = employees.map(emp => ({
+        ...emp,
+        ...emp.availability?.[0]
+      }));
+
       const schedule = [];
       let currentDate = new Date(this.monthStart);
       const employeeHours = {};
       let managerIndex = 0;
 
-      // Initialize employee hours
       employeesWithAvailability.forEach(emp => {
         employeeHours[emp.id] = 0;
       });
-  
-      console.log('Found employees with availability:', 
-        employeesWithAvailability.map(emp => ({
-          id: emp.id,
-          name: `${emp.first_name} ${emp.last_name}`,
-          role: emp.role,
-          hasAvailability: Object.keys(emp)
-            .filter(key => key.includes('morning') || key.includes('afternoon'))
-            .some(key => emp[key])
-        }))
-      );
-  
+
       while (currentDate <= this.monthEnd) {
         const dayName = this.getDayName(currentDate.getDay()).toLowerCase();
         
-        // Skip weekends
         if (dayName !== 'saturday' && dayName !== 'sunday') {
-          // First, schedule a manager for the day
           const selectedManager = managers[managerIndex];
           const managerShift = await this.createManagerShift(
             currentDate,
@@ -293,10 +281,8 @@ class AutoScheduler {
           );
           schedule.push(managerShift);
           
-          // Rotate to next manager
           managerIndex = (managerIndex + 1) % managers.length;
 
-          // Then schedule regular employees
           for (const shiftType of ['morning', 'afternoon']) {
             const availabilityKey = `${dayName}_${shiftType}`;
             let availableEmployees = employeesWithAvailability.filter(employee => {
@@ -316,7 +302,7 @@ class AutoScheduler {
                 currentDate, 
                 shiftType, 
                 selectedEmployee, 
-                selectedManager.id // Use the day's manager as manager_id
+                selectedManager.id
               );
   
               schedule.push(shift);
@@ -328,28 +314,22 @@ class AutoScheduler {
         
         currentDate.setDate(currentDate.getDate() + 1);
       }
-  
-      // Insert all shifts into database
-      for (const shift of schedule) {
-        await client.query(
-          `INSERT INTO schedules (date, shift_type, employee_id, manager_id, status)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [shift.date, shift.shift_type, shift.employee_id, shift.manager_id, shift.status]
-        );
-      }
-  
-      await client.query('COMMIT');
+
+      // Batch insert all shifts
+      const { error: insertError } = await supabaseServer
+        .from('schedules')
+        .insert(schedule);
+
+      if (insertError) throw insertError;
+
       return {
         schedule,
         summary: this.generateScheduleSummary(schedule, employeeHours),
         employeeHours
       };
     } catch (error) {
-      if (client) await client.query('ROLLBACK');
       console.error('Schedule generation failed:', error);
       throw error;
-    } finally {
-      if (client) client.release();
     }
   }
 
@@ -362,9 +342,9 @@ class AutoScheduler {
     return {
       totalShifts: schedule.length,
       employeeWorkload: Object.entries(employeeHours).map(([empId, hours]) => ({
-        employeeId: parseInt(empId),
+        employeeId: empId,
         hoursScheduled: hours,
-        shiftsScheduled: schedule.filter(s => s.employee_id === parseInt(empId)).length
+        shiftsScheduled: schedule.filter(s => s.employee_id === empId).length
       })),
       daysScheduled: new Set(schedule.map(s => s.date)).size,
       unfilledShifts: schedule.filter(s => !s.employee_id).length,
