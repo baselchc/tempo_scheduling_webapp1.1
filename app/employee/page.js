@@ -143,7 +143,7 @@ export default function EmployeePage() {
 
   const handleNotificationClick = async (notificationId) => {
     await markNotificationAsRead(notificationId);
-    router.push('/employee/messages');
+    router.push('/employee/notifications');
   };
 
   return (
@@ -159,7 +159,7 @@ export default function EmployeePage() {
         <button onClick={(e) => { e.stopPropagation(); toggleNotifications(); }} className="relative">
           <Notifications className="text-white text-4xl cursor-pointer" />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full px-1 py-0.5 text-xs border border-white">
+            <span className="absolute top-0 right-0 bg-red-500 text-white rounded-full px-1.5 py-0.5 text-xs border border-white">
               {unreadCount}
             </span>
           )}

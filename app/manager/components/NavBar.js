@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Home, Schedule, Work, AccountCircle, AddCircle, List, Check, Message} from '@mui/icons-material'; // Import Material UI icons
+import { Home, Schedule, Work, AccountCircle, AddCircle, List, Check, Message, Notifications} from '@mui/icons-material'; // Import Material UI icons
 import { useUser } from '@clerk/nextjs';
 
 const NavBar = ({ menuOpen, toggleMenu }) => {
@@ -8,7 +8,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
 
   const navItems = [
     { name: "Home", href: "/", icon: <Home /> },
-    { name: "Messages", href: "/manager/messages", icon: <Message /> },
+    { name: "Messages", href: "/manager/notifications", icon: <Notifications /> },
     { name: "Schedule", href: "/manager/schedule", icon: <Schedule /> },
     { name: "Open Shifts", href: "/manager/openshifts", icon: <Work /> },
     { name: "Profile", href: "/manager/profile", icon: <AccountCircle /> },

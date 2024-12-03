@@ -50,6 +50,7 @@ export default function MessagesPage() {
       fetchNotifications();
       fetchUsers();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, getToken]);
 
   const fetchNotifications = async () => {
@@ -153,6 +154,7 @@ export default function MessagesPage() {
       fetchConversationReplies(conversationId);
     }
   };
+  
 
   const fetchConversationReplies = async (conversationId) => {
     const { data, error } = await supabase
@@ -225,10 +227,10 @@ export default function MessagesPage() {
       </div>
 
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? "ml-64" : "ml-20"}`}>
-        <h1 className="text-4xl font-bold text-center text-white mb-8">Messages</h1>
+        <h1 className="text-4xl font-bold text-center text-white mb-8">Notifications</h1>
 
         <div className="bg-black/20 backdrop-blur-lg p-6 shadow-lg rounded-lg border-2 border-white mb-8">
-          <h2 className="text-2xl font-semibold mb-4 text-white">Create Message</h2>
+          <h2 className="text-2xl font-semibold mb-4 text-white">Create notification</h2>
           <select
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
@@ -245,14 +247,14 @@ export default function MessagesPage() {
           <textarea
             value={messageBody}
             onChange={(e) => setMessageBody(e.target.value)}
-            placeholder="Enter your message..."
+            placeholder="What's in your mind?..."
             className="w-full p-2 border rounded-lg mb-2"
           ></textarea>
           <button
             onClick={handleSendMessage}
             className="w-full p-2 bg-blue-500 text-white rounded-lg"
           >
-            Send Message
+            Send Notification
           </button>
         </div>
 
@@ -318,3 +320,4 @@ export default function MessagesPage() {
  {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
   add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
   tab and allow a view of Available Shifts and Open Shifts.*/}
+

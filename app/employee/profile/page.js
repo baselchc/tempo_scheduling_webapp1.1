@@ -4,9 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import AvailabilitySection from '../components/AvailabilitySection';
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'NEXT_PUBLIC_API_URL=http://localhost:5000';
+const apiUrl = process.env.NODE_ENV === 'production'
+  ? 'https://tempo-scheduling-webapp1-1.vercel.app'
+  : process.env.NEXT_PUBLIC_NGROK_URL || process.env.NEXT_PUBLIC_API_URL;
+
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export default function EmployeeProfile() {
@@ -24,54 +26,46 @@ export default function EmployeeProfile() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [username, setUsername] = useState('');
-  const [availability, setAvailability] = useState({});
 
   const [profileImage, setProfileImage] = useState(null);
-  const [profileImagePreview, setProfileImagePreview] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState('/images/default-avatar.png');
+  const [profileImageVersion, setProfileImageVersion] = useState(new Date().getTime());
 
   const router = useRouter();
 
   const fetchUserProfile = useCallback(async () => {
     try {
       const token = await getToken();
-      const [profileResponse, availabilityResponse] = await Promise.all([
-        fetch(`${apiUrl}/api/users/profile`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        }),
-        fetch(`${apiUrl}/api/users/availability`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-      ]);
-
-      if (!profileResponse.ok) {
-        throw new Error(`Failed to fetch profile: ${profileResponse.status}`);
+      if (!token || !user) {
+        throw new Error('Authentication required');
       }
 
-      const profileData = await profileResponse.json();
-      setFirstName(profileData.firstName || '');
-      setLastName(profileData.lastName || '');
-      setEmail(profileData.email || '');
-      setPhone(profileData.phone || '');
-      setUsername(profileData.username || '');
-      if (profileData.profileImageUrl) {
-        setProfileImagePreview(profileData.profileImageUrl);
-      }
+      const response = await fetch(`${apiUrl}/api/users/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+      });
 
-      if (availabilityResponse.ok) {
-        const availabilityData = await availabilityResponse.json();
-        setAvailability(availabilityData.availability);
+      const data = await response.json();
+
+      if (response.ok && data) {
+        setFirstName(data.firstName || '');
+        setLastName(data.lastName || '');
+        setEmail(data.email || user.primaryEmailAddress?.emailAddress || '');
+        setPhone(data.phone || '');
+        setUsername(data.username || user.username || '');
+
+        // Set profile image preview to the public URL returned from backend
+        setProfileImagePreview(data.profileImageUrl || '/images/default-avatar.png');
+        setProfileImageVersion(new Date().getTime());
       }
-      
-      setIsLoading(false);
     } catch (err) {
-      setError(`Failed to load profile: ${err.message}`);
+      console.error('Error loading profile:', err);
+      setError(err.message);
+    } finally {
       setIsLoading(false);
     }
-  }, [getToken]);
+  }, [getToken, user]);
 
   useEffect(() => {
     if (isLoaded && getToken) {
@@ -87,37 +81,23 @@ export default function EmployeeProfile() {
     const file = e.target.files[0];
     if (file) {
       if (file.size > MAX_FILE_SIZE) {
-        setError("File size exceeds 5MB limit, sorry");
+        setError("File size exceeds 5MB limit");
         return;
       }
       if (!file.type.startsWith('image/')) {
         setError("File must be an image");
         return;
       }
+
       setProfileImage(file);
-      setProfileImagePreview(URL.createObjectURL(file));
-    }
-  };
 
-  const handleAvailabilityChange = async (newAvailability) => {
-    try {
-      const token = await getToken();
-      const response = await fetch(`${apiUrl}/api/users/availability`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ availability: newAvailability })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update availability');
+      // Create an immediate preview of the selected image without saving
+      if (profileImagePreview && profileImagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(profileImagePreview); // Revoke old blob URL
       }
 
-      setAvailability(newAvailability);
-    } catch (error) {
-      setError(error.message);
+      const previewUrl = URL.createObjectURL(file);
+      setProfileImagePreview(previewUrl); // Set new preview URL
     }
   };
 
@@ -125,42 +105,51 @@ export default function EmployeeProfile() {
     try {
       setIsLoading(true);
       setError(null);
-      
+
+      const token = await getToken();
+
       const formData = new FormData();
       formData.append('firstName', firstName);
       formData.append('lastName', lastName);
       formData.append('email', email);
       formData.append('phone', phone);
       formData.append('username', username);
-      
+
       if (profileImage) {
         formData.append('profileImage', profileImage);
       }
-  
-      const token = await getToken();
+
       const response = await fetch(`${apiUrl}/api/users/profile`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
         body: formData
       });
-  
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update profile');
+        const errorData = await response.json().catch(() => ({ error: 'Failed to update profile' }));
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
-  
-      const data = await response.json();
-      setIsLoading(false);
+
+      const responseData = await response.json();
+
+      if (responseData.user && responseData.user.profileImageUrl) {
+        // Update image URL and add a cache-busting timestamp
+        const uniqueImageUrl = `${responseData.user.profileImageUrl}?t=${new Date().getTime()}`;
+        setProfileImagePreview(uniqueImageUrl);
+        setProfileImageVersion(new Date().getTime());
+      }
+
+      setProfileImage(null); // Clear the selected file
       alert('Profile updated successfully');
-      
+
       // Refresh the profile data
       await fetchUserProfile();
-      
     } catch (err) {
-      console.error('Profile update error:', err);
-      setError(err.message);
+      console.error('Error updating profile:', err);
+      setError(err.message || 'Failed to update profile');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -170,11 +159,11 @@ export default function EmployeeProfile() {
   return (
     <div className="relative min-h-screen text-black">
       <Image
-          src="/images/loginpagebackground.webp"
-          alt="Background"
-          layout="fill"
-          objectFit="cover"
-          className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
+        src="/images/loginpagebackground.webp"
+        alt="Background"
+        layout="fill"
+        objectFit="cover"
+        className="absolute inset-0 -z-10 bg-cover bg-center filter blur-2xl"
       />
 
       <NavBar menuOpen={menuOpen} toggleMenu={toggleMenu} />
@@ -184,14 +173,14 @@ export default function EmployeeProfile() {
 
         <button onClick={toggleProfileMenu} className="flex items-center gap-2">
           <div className="w-10 h-10 relative overflow-hidden rounded-full">
-            <Image 
-              className="object-cover"
-              src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'} 
-              alt="Profile image" 
-              layout="fill"
-              sizes="(max-width: 768px) 100vw,
-                     (max-width: 1200px) 50vw,
-                     33vw"
+            <Image
+              key={profileImageVersion} // Using unique key to trigger reload
+              src={`${profileImagePreview}?t=${profileImageVersion}`}
+              alt="Profile image"
+              fill
+              onError={() => setProfileImagePreview('/images/default-avatar.png')}
+              style={{ objectFit: 'cover' }}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
           </div>
           <span className="text-white font-semibold">{user?.emailAddresses[0].emailAddress}</span>
@@ -227,7 +216,8 @@ export default function EmployeeProfile() {
               <div className="flex items-start space-x-4">
                 <div className="w-32 h-32 relative overflow-hidden rounded-full bg-gray-200">
                   <Image
-                    src={profileImagePreview || user?.profileImageUrl || '/images/default-avatar.png'}
+                    key={profileImageVersion} 
+                    src={`${profileImagePreview}?t=${profileImageVersion}`}
                     alt="Profile Preview"
                     layout="fill"
                     objectFit="cover"
@@ -253,36 +243,26 @@ export default function EmployeeProfile() {
             </div>
             <div>
               <label className="block mb-1 text-white">First Name:</label>
-              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" 
-                     type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
             </div>
             <div>
               <label className="block mb-1 text-white">Last Name:</label>
-              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" 
-                     type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} />
             </div>
             <div>
               <label className="block mb-1 text-white">Email:</label>
-              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" 
-                     type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div>
               <label className="block mb-1 text-white">Phone:</label>
-              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" 
-                     type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div>
               <label className="block mb-1 text-white">Username:</label>
-              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" 
-                     type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
+              <input className="bg-transparent border-b-2 border-white w-full px-2 py-1 text-white" type="text" value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
           </div>
         </div>
-
-        <AvailabilitySection 
-          onAvailabilityChange={handleAvailabilityChange}
-          initialAvailability={availability}
-        />
 
         <div className="mt-8 text-center">
           <button
@@ -298,7 +278,10 @@ export default function EmployeeProfile() {
   );
 }
 
+
 /* 
 Used Claude AI to assit with creation of the page, "List the steps to Allow users to view and edit their profile information"
 Which allowed for referencing and learning while creating this page
 */
+
+/* ChatGPT 4o used to migrate to the Supabase database, prompt was: "Help me integrate this page with my supabase database" */

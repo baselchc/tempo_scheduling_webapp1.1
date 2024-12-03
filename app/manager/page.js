@@ -192,7 +192,7 @@ export default function ManagerDashboard() {
 
   const handleNotificationClick = async (notificationId) => {
     await markAsRead(notificationId);
-    router.push("/manager/messages");
+    router.push("/manager/notifications");
   };
 
   return (
@@ -247,8 +247,8 @@ export default function ManagerDashboard() {
             className="rounded-full"
             src={profileImageUrl}
             alt="Profile image"
-            width={40}
-            height={40}
+            width={30}
+            height={30}
           />
           <span className="text-white font-semibold">
             {user?.emailAddresses[0].emailAddress}
