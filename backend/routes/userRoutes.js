@@ -1,3 +1,5 @@
+// backend/routes/userRoutes.js
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
@@ -173,4 +175,3 @@ module.exports = router;
   add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
   tab and allow a view of Available Shifts and Open Shifts.*/}
 
-  ///Hi

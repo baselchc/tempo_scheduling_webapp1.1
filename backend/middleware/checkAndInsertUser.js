@@ -1,6 +1,7 @@
-const { supabase } = require('../database/supabaseClient'); // Ensure path is correct
+// backend/middleware/checkAndInsertUser.js
 
-// Middleware to check if a user exists in the database and insert if not
+import { supabaseServer } from '../../lib/supabase-server';
+
 const checkAndInsertUser = async (req, res, next) => {
   try {
     if (!req.auth || !req.auth.userId) {
@@ -10,45 +11,81 @@ const checkAndInsertUser = async (req, res, next) => {
 
     console.log('Checking user in database for Clerk userId:', req.auth.userId);
 
-    const { data: user, error: fetchError } = await supabase
+    // Check if user exists
+    const { data: existingUser, error: fetchError } = await supabaseServer
       .from('users')
       .select('*')
       .eq('clerk_user_id', req.auth.userId)
       .single();
 
-    if (fetchError) {
-      console.error('Error fetching user from Supabase:', fetchError);
-      return res.status(500).json({ error: 'Failed to check user existence' });
+    if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      throw fetchError;
     }
 
-    if (!user) {
-      const { email, username } = req.auth; // Confirm fields are populated
-      if (!email || !username) {
-        console.warn('Email or username missing from Clerk auth data:', { email, username });
+    if (!existingUser) {
+      const { email_addresses, username, firstName, lastName } = req.auth;
+      const email = email_addresses?.[0]?.email_address;
+
+      if (!email) {
+        console.warn('Email missing from Clerk auth data');
+        return res.status(400).json({ error: 'Email is required' });
       }
 
-      const { error: insertError } = await supabase
+      console.log('Creating new user:', {
+        clerk_user_id: req.auth.userId,
+        email,
+        username,
+        firstName,
+        lastName
+      });
+
+      // Check if email already exists
+      const { data: emailCheck } = await supabaseServer
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (emailCheck) {
+        return res.status(409).json({ error: 'Email already exists' });
+      }
+
+      // Insert new user
+      const { data: newUser, error: insertError } = await supabaseServer
         .from('users')
         .insert({
           clerk_user_id: req.auth.userId,
-          email,
-          username,
-        });
+          email: email,
+          username: username || email.split('@')[0],
+          first_name: firstName || '',
+          last_name: lastName || '',
+          role: 'employee',
+          is_whitelisted: false
+        })
+        .select()
+        .single();
 
       if (insertError) {
-        console.error('Error inserting new user in Supabase:', insertError);
-        return res.status(500).json({ error: 'Failed to insert user' });
+        throw insertError;
       }
 
-      console.log('New user inserted:', req.auth.userId);
+      console.log('New user inserted:', newUser);
     } else {
-      console.log('User already exists:', req.auth.userId);
+      console.log('User already exists:', existingUser);
     }
 
     next();
   } catch (error) {
-    console.error('Unexpected error in checkAndInsertUser middleware:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    console.error('Error in checkAndInsertUser middleware:', error);
+    
+    if (error.code === '23505') { // Unique constraint violation
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    
+    return res.status(500).json({ 
+      error: 'Internal server error',
+      details: error.message 
+    });
   }
 };
 

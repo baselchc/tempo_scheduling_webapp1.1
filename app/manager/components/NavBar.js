@@ -1,3 +1,5 @@
+// app/manager/components/NavBar.js
+
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { Home, Schedule, Work, AccountCircle, AddCircle, List, Check, Message, Notifications} from '@mui/icons-material'; // Import Material UI icons

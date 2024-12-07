@@ -1,3 +1,5 @@
+// app/employee/page.js
+
 "use client";
 
 import { useUser, useAuth } from '@clerk/nextjs';
@@ -8,7 +10,7 @@ import { CheckCircle, ArrowForward } from '@mui/icons-material'; // Import icons
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import EmployeeCalendar from './components/Calendar';
-import { supabase } from '../../backend/database/supabaseClient';
+import { supabase } from '../../lib/supabase-browser'
 
 export default function EmployeePage() {
   const { signOut, getToken } = useAuth();

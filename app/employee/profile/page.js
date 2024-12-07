@@ -1,6 +1,8 @@
+// app/employee/profile/page.js
+
 "use client";
 import { useUser, useAuth } from '@clerk/nextjs';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -20,6 +22,7 @@ export default function EmployeeProfile() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const mountedRef = useRef(false);
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -34,6 +37,12 @@ export default function EmployeeProfile() {
   const router = useRouter();
 
   const fetchUserProfile = useCallback(async () => {
+    console.log('fetchUserProfile called, mountedRef:', mountedRef.current);
+    if (!mountedRef.current) {
+      console.log('Fetch aborted - component not mounted');
+      return;
+    }
+  
     try {
       const token = await getToken();
       if (!token || !user) {
@@ -67,11 +76,20 @@ export default function EmployeeProfile() {
     }
   }, [getToken, user]);
 
-  useEffect(() => {
-    if (isLoaded && getToken) {
-      fetchUserProfile();
-    }
-  }, [isLoaded, getToken, fetchUserProfile]);
+useEffect(() => {
+  console.log('Profile effect triggered');
+  mountedRef.current = true;
+
+  if (isLoaded && getToken) {
+    console.log('Conditions met, fetching profile');
+    fetchUserProfile();
+  }
+
+  return () => {
+    console.log('Profile cleanup - unmounting');
+    mountedRef.current = false;
+  };
+}, [isLoaded, getToken, fetchUserProfile]);
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
   const toggleNotifications = () => setNotificationsOpen(!notificationsOpen);

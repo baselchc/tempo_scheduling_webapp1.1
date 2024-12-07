@@ -1,10 +1,12 @@
+// app/whitelist/page.js
+
 "use client";
 
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation"; // Import useRouter for navigation
-import { supabase } from '/backend/database/supabaseClient';
+import { supabase } from '../../lib/supabase-browser'
 
 export default function WhitelistPage() {
   const { user } = useUser();
