@@ -4,7 +4,7 @@ const path = require('path');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const errorHandler = require('./middleware/errorHandler');
-import { supabaseServer } from '../../lib/supabase-server';
+const { supabase } = require('./database/supabaseClient'); // Import your Supabase client
 
 // Import route handlers
 const userRoutes = require('./routes/userRoutes');
@@ -16,15 +16,7 @@ const employeeRoutes = require('./routes/employeeRoutes');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 console.log('Environment:', process.env.NODE_ENV);
 console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
-console.log("Loaded Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-console.log("Loaded Supabase ANON KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 console.log("API URL:", process.env.API_URL);
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'is set' : 'is NOT set');
-
-// Import route handlers
-const userRoutes = require('./routes/userRoutes');
-const clerkWebhooks = require('./routes/clerkWebhooks');
-const scheduleRoutes = require('./routes/scheduleRoutes');
 
 // Check if the environment is in development mode
 const dev = process.env.NODE_ENV !== 'production';
@@ -69,7 +61,7 @@ const setupServer = async () => {
   // Health check endpoint
   app.get('/health', async (req, res) => {
     try {
-      const { data, error } = await supabaseServer.from('users').select('count').single();
+      const { data, error } = await supabase.from('users').select('count').single();
       if (error) throw error;
       res.json({ 
         status: 'OK', 
@@ -98,7 +90,7 @@ const setupServer = async () => {
 
   // Test database connection
   try {
-    const { data, error } = await supabaseServer
+    const { data, error } = await supabase
       .from('users')
       .select('count')
       .single();
@@ -175,5 +167,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-
-//Taken help of ChatGPT for connecting. Prompt: "Help me adapt this to the Supabase database"
+module.exports = app;
