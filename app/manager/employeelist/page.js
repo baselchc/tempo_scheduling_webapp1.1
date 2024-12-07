@@ -1,14 +1,10 @@
-// app / manager / employeelist / page.js
-
 "use client";
 import { useState, useEffect } from "react";
-import axios from "axios";
 import { useUser, useAuth, SignOutButton } from "@clerk/nextjs";
 import NavBar from "../components/NavBar";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-
-const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+import { supabase } from "../../../backend/database/supabaseClient"; // Adjust the path if needed
 
 export default function EmployeeListPage() {
   const { user } = useUser();
@@ -26,7 +22,7 @@ export default function EmployeeListPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState(null);
-  
+
   // UI state
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -40,24 +36,17 @@ export default function EmployeeListPage() {
     try {
       setIsFetching(true);
       setError(null);
-      const token = await getToken();
-      
-      const response = await axios.get(`${apiUrl}/api/employees/get-employees`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        timeout: 5000 // 5 second timeout
-      });
 
-      if (response.data) {
-        console.log('Fetched employees:', response.data.length);
-        setEmployees(response.data);
-      }
+      const { data: employeesData, error: fetchError } = await supabase
+        .from("users")
+        .select("id, first_name, last_name, email, phone, role");
+
+      if (fetchError) throw fetchError;
+
+      setEmployees(employeesData || []);
     } catch (error) {
-      console.error("Failed to fetch employees:", error);
-      const errorMessage = error.response?.data?.error 
-        || (error.code === 'ECONNABORTED' ? 'Connection timeout - please try again' : 'Failed to fetch employees');
-      setError(errorMessage);
+      console.error("Failed to fetch employees:", error.message || error);
+      setError("Failed to fetch employees.");
     } finally {
       setIsFetching(false);
     }
@@ -70,28 +59,20 @@ export default function EmployeeListPage() {
     setStatusMessage("");
 
     try {
-      const token = await getToken();
-      
-      const response = await axios.post(
-        `${apiUrl}/api/employees/add-employee`,
+      const { error: insertError } = await supabase.from("users").insert([
         {
-          firstName,
-          lastName,
+          first_name: firstName,
+          last_name: lastName,
           email,
           phone,
-          role
+          role,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 5000
-        }
-      );
+      ]);
+
+      if (insertError) throw insertError;
 
       setStatusMessage("Employee added successfully!");
-      
+
       // Reset form
       setFirstName("");
       setLastName("");
@@ -102,12 +83,9 @@ export default function EmployeeListPage() {
       // Refresh employee list
       await fetchEmployees();
     } catch (error) {
-      console.error("Failed to add employee:", error);
-      const errorMessage = error.response?.data?.error 
-        || (error.code === 'ECONNABORTED' ? 'Connection timeout - please try again' 
-        : 'Failed to add employee');
-      setError(errorMessage);
-      setStatusMessage("Failed to add employee");
+      console.error("Failed to add employee:", error.message || error);
+      setError("Failed to add employee.");
+      setStatusMessage("Failed to add employee.");
     } finally {
       setIsLoading(false);
     }
@@ -139,15 +117,17 @@ export default function EmployeeListPage() {
             height={40}
           />
           <span className="text-white font-semibold">
-            {user?.emailAddresses[0].emailAddress}
+            {user?.emailAddresses[0]?.emailAddress}
           </span>
         </button>
 
         {profileMenuOpen && (
           <div className="absolute top-16 right-0 bg-white shadow-lg rounded-lg p-4 w-48 z-50">
             <ul>
-              <li className="p-2 hover:bg-gray-100 cursor-pointer" 
-                  onClick={() => router.push('/manager/profile')}>
+              <li
+                className="p-2 hover:bg-gray-100 cursor-pointer"
+                onClick={() => router.push("/manager/profile")}
+              >
                 Edit Profile
               </li>
               <li className="p-2 hover:bg-gray-100 cursor-pointer">
@@ -158,10 +138,8 @@ export default function EmployeeListPage() {
         )}
       </div>
 
-      <div className={`container mx-auto mt-10 px-4 ${menuOpen ? 'ml-64' : 'ml-20'}`}>
-        <h1 className="text-4xl font-bold mb-8 text-center text-white">
-          Employee Management
-        </h1>
+      <div className={`container mx-auto mt-10 px-4 ${menuOpen ? "ml-64" : "ml-20"}`}>
+        <h1 className="text-4xl font-bold mb-8 text-center text-white">Employee Management</h1>
 
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
@@ -172,9 +150,7 @@ export default function EmployeeListPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
           {/* Add Employee Form */}
           <div className="bg-black/20 backdrop-blur-lg shadow-lg rounded-lg p-6 border-2 border-white">
-            <h2 className="text-2xl font-bold mb-4 text-center text-white">
-              Add New Employee
-            </h2>
+            <h2 className="text-2xl font-bold mb-4 text-center text-white">Add New Employee</h2>
             <form onSubmit={handleAddEmployee} className="space-y-4">
               <input
                 className="block w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 bg-white/10 text-white placeholder-gray-300"
@@ -238,11 +214,11 @@ export default function EmployeeListPage() {
               </button>
             </form>
             {statusMessage && (
-              <p className={`mt-4 text-lg text-center ${
-                statusMessage.includes("success")
-                  ? "text-green-400"
-                  : "text-red-400"
-              }`}>
+              <p
+                className={`mt-4 text-lg text-center ${
+                  statusMessage.includes("success") ? "text-green-400" : "text-red-400"
+                }`}
+              >
                 {statusMessage}
               </p>
             )}
@@ -251,9 +227,7 @@ export default function EmployeeListPage() {
           {/* Employee List */}
           <div className="bg-black/20 backdrop-blur-lg shadow-lg rounded-lg p-6 border-2 border-white">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-center text-white">
-                Employee List
-              </h2>
+              <h2 className="text-2xl font-bold text-center text-white">Employee List</h2>
               <button
                 onClick={fetchEmployees}
                 disabled={isFetching}

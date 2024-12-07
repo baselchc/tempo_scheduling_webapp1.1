@@ -1,5 +1,5 @@
 const { google } = require('googleapis');
-const { supabase } = require('../supabaseClient'); // Adjust the path to your supabaseClient.js
+const { supabase } = require('../database/supabaseClient'); // Adjust the path to your supabaseClient.js
 
 class AutoScheduler {
   constructor(monthStart) {

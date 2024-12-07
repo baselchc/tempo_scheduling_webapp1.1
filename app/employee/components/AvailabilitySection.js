@@ -1,56 +1,75 @@
-// app/employee/components/AvailabilitySection.js
-
 "use client";
 
 import { Clock } from "lucide-react";
 import { useState, useEffect } from "react";
+import { supabase } from "../../../backend/database/supabaseClient"; // Adjust the import path if needed
 
 const SHIFTS = {
-  MORNING: "morning", // 9 AM - 1 PM
-  AFTERNOON: "afternoon" // 1 PM - 5 PM
+  MORNING: "morning",
+  AFTERNOON: "afternoon",
 };
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
-export default function AvailabilitySection({ onAvailabilityChange, initialAvailability = {} }) {
+export default function AvailabilitySection({ initialAvailability = {}, clerkUserId }) {
   const [availability, setAvailability] = useState({});
   const [submitStatus, setSubmitStatus] = useState({ type: "", message: "" });
 
   useEffect(() => {
     const defaultAvailability = {};
-    DAYS.forEach(day => {
-      defaultAvailability[day] = {
-        morning: false,
-        afternoon: false
-      };
+    DAYS.forEach((day) => {
+      defaultAvailability[day] = { morning: false, afternoon: false };
     });
     setAvailability({ ...defaultAvailability, ...initialAvailability });
   }, [initialAvailability]);
 
   const handleShiftChange = (day, shift) => {
-    setAvailability(prev => ({
+    setAvailability((prev) => ({
       ...prev,
       [day]: {
         ...prev[day],
-        [shift]: !prev[day][shift]
-      }
+        [shift]: !prev[day][shift],
+      },
     }));
   };
 
   const handleSubmit = async () => {
     try {
-      if (onAvailabilityChange) {
-        await onAvailabilityChange(availability);
+      setSubmitStatus({ type: "", message: "" });
+
+      // Fetch the current user's ID from the `users` table
+      const { data: user, error: userError } = await supabase
+        .from("users")
+        .select("id")
+        .eq("clerk_user_id", clerkUserId)
+        .single();
+
+      if (userError || !user) {
+        throw new Error("User not found in the database.");
       }
-      setSubmitStatus({
-        type: "success",
-        message: "Availability updated successfully"
-      });
+
+      const userId = user.id;
+
+      // Format availability
+      const formattedAvailability = {
+        week_start: new Date().toISOString().split("T")[0],
+        ...Object.fromEntries(
+          DAYS.flatMap((day) => [
+            [`${day.toLowerCase()}_morning`, availability[day]?.morning || false],
+            [`${day.toLowerCase()}_afternoon`, availability[day]?.afternoon || false],
+          ])
+        ),
+      };
+
+      const { error } = await supabase
+        .from("availability")
+        .upsert({ ...formattedAvailability, user_id: userId }, { onConflict: ["user_id", "week_start"] });
+
+      if (error) throw error;
+
+      setSubmitStatus({ type: "success", message: "Availability updated successfully." });
     } catch (error) {
-      setSubmitStatus({
-        type: "error",
-        message: "Failed to update availability"
-      });
+      setSubmitStatus({ type: "error", message: `Failed to update availability: ${error.message}` });
     }
   };
 
@@ -65,15 +84,17 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
 
       <div className="space-y-6">
         {submitStatus.message && (
-          <div className={`p-4 rounded-lg border border-white ${
-            submitStatus.type === "error" ? "bg-red-500/20" : "bg-green-500/20"
-          }`}>
+          <div
+            className={`p-4 rounded-lg border border-white ${
+              submitStatus.type === "error" ? "bg-red-500/20" : "bg-green-500/20"
+            }`}
+          >
             <p className="text-white">{submitStatus.message}</p>
           </div>
         )}
-        
+
         <div className="grid gap-4">
-          {DAYS.map(day => (
+          {DAYS.map((day) => (
             <div key={day} className="flex items-center space-x-4 p-4 rounded-lg bg-white/10">
               <span className="text-white font-medium min-w-[100px]">{day}</span>
               <div className="flex gap-4">
@@ -99,7 +120,7 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
             </div>
           ))}
         </div>
-        
+
         <div className="mt-6 text-center">
           <button
             onClick={handleSubmit}
@@ -112,5 +133,3 @@ export default function AvailabilitySection({ onAvailabilityChange, initialAvail
     </div>
   );
 }
-
-// Used claude ai to assit with creating this page "what's an efficient way for employees to submit their availability"
