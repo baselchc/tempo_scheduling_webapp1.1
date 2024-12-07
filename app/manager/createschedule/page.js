@@ -4,9 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from '../components/NavBar';
 import Image from 'next/image';
 import ModernScheduleCalendar from '../components/SchedulerCalendar';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+import { supabase } from '../../../backend/database/supabaseClient'; // Correct import path
 
 export default function CreateSchedulePage() {
   const { signOut, getToken } = useAuth();
@@ -30,7 +28,7 @@ export default function CreateSchedulePage() {
     try {
       const token = await getToken();
       const response = await fetch('/api/users/profile', {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       const data = await response.json();
@@ -47,51 +45,17 @@ export default function CreateSchedulePage() {
   }, [user, fetchUserProfileImage]);
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      if (!user) return;
-
-      const { data: userRecord, error: userError } = await supabase
-        .from('users')
-        .select('id')
-        .eq('clerk_user_id', user.id)
-        .single();
-
-      if (userError || !userRecord) {
-        console.error('Error fetching user record:', userError.message);
-        return;
-      }
-
-      const userId = userRecord.id;
-
-      const { data, error } = await supabase
-        .from('notifications')
-        .select(`
-          *,
-          sender:from_user_id (first_name, last_name)
-        `)
-        .or(`to_user_id.eq.${userId},broadcast.eq.true`)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching notifications:', error.message);
-      } else {
-        setNotifications(data || []);
-      }
-    };
-
-    fetchNotifications();
-  }, [user]);
-
-  useEffect(() => {
     const fetchEmployees = async () => {
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, clerk_user_id, first_name, last_name');
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id, clerk_user_id, first_name, last_name');
 
-      if (error) {
-        console.error('Error fetching employees:', error.message);
-      } else {
+        if (error) throw error;
+
         setEmployees(data || []);
+      } catch (error) {
+        console.error('Error fetching employees:', error.message);
       }
     };
 
@@ -102,37 +66,32 @@ export default function CreateSchedulePage() {
     e.preventDefault();
 
     if (!selectedEmployee || !shiftStart || !shiftEnd || !weekPeriod) {
-      alert("Please fill in all required fields.");
+      alert('Please fill in all required fields.');
       return;
     }
 
-    const employee = employees.find((emp) => emp.clerk_user_id === selectedEmployee);
-    if (!employee) {
-      alert("Selected employee has an invalid ID.");
-      return;
-    }
+    try {
+      const { error } = await supabase
+        .from('my_shifts')
+        .insert({
+          user_id: selectedEmployee,
+          shift_start: shiftStart,
+          shift_end: shiftEnd,
+          reason: reason,
+          week_period: weekPeriod,
+        });
 
-    const { error } = await supabase
-      .from('my_shifts')
-      .insert({
-        user_id: selectedEmployee,
-        shift_start: shiftStart,
-        shift_end: shiftEnd,
-        reason: reason,
-        week_period: weekPeriod,
-        assigned_to: selectedEmployee,
-      });
+      if (error) throw error;
 
-    if (error) {
-      console.error('Error creating schedule:', error.message);
-      alert("An error occurred while creating the schedule.");
-    } else {
-      alert("Schedule created successfully!");
+      alert('Schedule created successfully!');
       setShiftStart('');
       setShiftEnd('');
       setReason('');
       setWeekPeriod('');
       setSelectedEmployee('');
+    } catch (error) {
+      console.error('Error creating schedule:', error.message);
+      alert('An error occurred while creating the schedule.');
     }
   };
 
@@ -147,17 +106,15 @@ export default function CreateSchedulePage() {
         1
       );
 
-      console.log('Generating schedule for month:', firstDayOfMonth.toISOString());
-
       const response = await fetch('/api/schedule/generate-schedule', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          monthStart: firstDayOfMonth.toISOString()
-        })
+          monthStart: firstDayOfMonth.toISOString(),
+        }),
       });
 
       if (!response.ok) {
@@ -173,7 +130,7 @@ export default function CreateSchedulePage() {
 
       alert('Schedule generated successfully!');
     } catch (err) {
-      console.error('Error generating schedule:', err);
+      console.error('Error generating schedule:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
