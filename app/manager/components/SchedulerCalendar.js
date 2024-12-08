@@ -50,11 +50,13 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
     if (!user || isLoadingRef.current || !mountedRef.current) return;
     
     try {
+      console.log('Starting data fetch...');
       isLoadingRef.current = true;
       setLoading(true);
       setError(null);
       
       const token = await getToken();
+      console.log('Got auth token');
       
       const monthStr = new Date(
         currentDate.getFullYear(),
@@ -62,64 +64,75 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
         1
       ).toISOString();
   
-      console.log('Fetching schedule for month:', monthStr);
+      console.log('Fetching data for month:', monthStr);
   
-      const [employeesResponse, scheduleResponse] = await Promise.all([
-        axios.get(`${apiUrl}/api/employees/get-employees`, {
+      try {
+        const employeesResponse = await axios.get(`${apiUrl}/api/employees/get-employees`, {
           headers: { Authorization: `Bearer ${token}` }
-        }),
-        axios.get(`${apiUrl}/api/schedule/monthly-schedule`, {
+        });
+        console.log('Employees API response:', {
+          status: employeesResponse.status,
+          count: employeesResponse.data?.length,
+          data: employeesResponse.data
+        });
+  
+        const scheduleResponse = await axios.get(`${apiUrl}/api/schedule/monthly-schedule`, {
           params: { month: monthStr },
           headers: { Authorization: `Bearer ${token}` }
-        })
-      ]);
-  
-      if (mountedRef.current) {
-        const employees = employeesResponse.data || [];
-        console.log('Employees fetched:', employees.map(e => ({
-          id: e.id,
-          name: `${e.first_name} ${e.last_name}`,
-          role: e.role
-        })));
-  
-        const rawSchedule = scheduleResponse.data || [];
-        console.log('Raw schedule data:', rawSchedule.map(s => ({
-          date: s.date,
-          type: s.shift_type,
-          employeeId: s.employee_id
-        })));
-  
-        // Count shifts by type
-        const shiftCounts = rawSchedule.reduce((acc, s) => {
-          acc[s.shift_type] = (acc[s.shift_type] || 0) + 1;
-          return acc;
-        }, {});
-        console.log('Shift counts by type:', shiftCounts);
-  
-        const formattedSchedule = rawSchedule.map(s => ({
-          ...s,
-          date: new Date(s.date).toISOString().split('T')[0],
-          employee: employees.find(e => e.id === s.employee_id)
-        }));
-  
-        setEmployees(employees);
-        setSchedule(formattedSchedule);
-  
-        // Log a sample day's schedule
-        const sampleDate = new Date(monthStr);
-        const sampleDateStr = sampleDate.toISOString().split('T')[0];
-        const sampleDaySchedule = formattedSchedule.filter(s => s.date === sampleDateStr);
-        console.log('Sample day schedule:', {
-          date: sampleDateStr,
-          shifts: sampleDaySchedule.map(s => ({
-            type: s.shift_type,
-            employee: `${s.employee?.first_name} ${s.employee?.last_name}`,
-            employeeId: s.employee_id
-          }))
         });
+        console.log('Schedule API response:', {
+          status: scheduleResponse.status,
+          count: scheduleResponse.data?.length,
+          data: scheduleResponse.data
+        });
+  
+        if (mountedRef.current) {
+          const employees = employeesResponse.data || [];
+          console.log('Processed employees:', {
+            count: employees.length,
+            roles: employees.reduce((acc, e) => {
+              acc[e.role] = (acc[e.role] || 0) + 1;
+              return acc;
+            }, {})
+          });
+  
+          const rawSchedule = scheduleResponse.data || [];
+          console.log('Schedule processing:', {
+            totalShifts: rawSchedule.length,
+            uniqueDates: new Set(rawSchedule.map(s => s.date)).size,
+            uniqueEmployees: new Set(rawSchedule.map(s => s.employee_id)).size
+          });
+  
+          const formattedSchedule = rawSchedule.map(s => ({
+            ...s,
+            date: new Date(s.date).toISOString().split('T')[0],
+            employee: employees.find(e => e.id === s.employee_id)
+          }));
+  
+          console.log('Final data state:', {
+            employeeCount: employees.length,
+            scheduleCount: formattedSchedule.length,
+            sampleShift: formattedSchedule[0]
+          });
+  
+          setEmployees(employees);
+          setSchedule(formattedSchedule);
+        }
+      } catch (apiError) {
+        console.error('API call failed:', {
+          message: apiError.message,
+          response: apiError.response?.data,
+          status: apiError.response?.status
+        });
+        throw apiError;
       }
     } catch (error) {
-      console.error('Calendar fetch error:', error);
+      console.error('Detailed fetch error:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        stack: error.stack
+      });
       setError(error.response?.data?.error || 'Failed to fetch calendar data');
     } finally {
       if (mountedRef.current) {

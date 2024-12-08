@@ -1,6 +1,5 @@
 //backend/routes/scheduleRoutes.js
 
-import express from 'express';
 import { Router } from 'express';
 import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
 import { supabase } from '../database/supabaseClient.js';
@@ -123,6 +122,37 @@ router.get('/employee-schedule/:employeeId', ClerkExpressWithAuth(), async (req,
   } catch (error) {
     console.error('Error fetching schedule:', error);
     res.status(500).json({ error: 'Server Error' });
+  }
+});
+
+router.post('/generate-schedule', ClerkExpressWithAuth(), async (req, res) => {
+  try {
+    const { monthStart } = req.body;
+
+    // Check if user is a manager
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role, id')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
+
+    if (userError || !userData || userData.role !== 'manager') {
+      return res.status(403).json({ error: 'Only managers can generate schedules' });
+    }
+
+    // Create AutoScheduler instance
+    const scheduler = new AutoScheduler(monthStart);
+    
+    // Generate the schedule
+    const result = await scheduler.generateSchedule();
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error generating schedule:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate schedule',
+      details: error.message 
+    });
   }
 });
 
