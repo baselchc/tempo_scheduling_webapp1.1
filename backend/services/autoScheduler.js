@@ -1,7 +1,7 @@
 // backend/services/autoScheduler.js
 
-const { google } = require('googleapis');
-import { supabaseServer } from '../../lib/supabase-server';
+import { google } from 'googleapis';
+import { supabase } from '../database/supabaseClient.js';
 
 class AutoScheduler {
   constructor(monthStart) {
@@ -206,7 +206,7 @@ class AutoScheduler {
   async generateSchedule() {
     try {
       // Clear existing schedule for the month
-      const { error: deleteError } = await supabaseServer
+      const { error: deleteError } = await supabase
         .from('schedules')
         .delete()
         .gte('date', this.monthStart.toISOString())
@@ -215,7 +215,7 @@ class AutoScheduler {
       if (deleteError) throw deleteError;
 
       // Get managers
-      const { data: managers, error: managersError } = await supabaseServer
+      const { data: managers, error: managersError } = await supabase
         .from('users')
         .select('id, first_name, last_name, email')
         .eq('role', 'manager');
@@ -226,7 +226,7 @@ class AutoScheduler {
       }
 
       // Get employees with availability
-      const { data: employees, error: employeesError } = await supabaseServer
+      const { data: employees, error: employeesError } = await supabase
         .from('users')
         .select(`
           id,
@@ -316,7 +316,7 @@ class AutoScheduler {
       }
 
       // Batch insert all shifts
-      const { error: insertError } = await supabaseServer
+      const { error: insertError } = await supabase
         .from('schedules')
         .insert(schedule);
 
@@ -354,4 +354,4 @@ class AutoScheduler {
   }
 }
 
-module.exports = { AutoScheduler };
+export default { AutoScheduler };

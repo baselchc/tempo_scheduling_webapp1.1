@@ -6,7 +6,7 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation"; // Import useRouter for navigation
-import { supabase } from '../../lib/supabase-browser'
+import { supabase } from '../../backend/database/supabaseClient';
 
 export default function WhitelistPage() {
   const { user } = useUser();

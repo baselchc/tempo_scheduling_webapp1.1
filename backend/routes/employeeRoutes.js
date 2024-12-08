@@ -1,13 +1,16 @@
-const express = require('express');
-const router = express.Router();
-const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
-import { supabaseServer } from '../../lib/supabase-server';
+// backend/routes/employeeRoutes.js
+
+import { Router } from 'express';
+import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import { supabase } from '../database/supabaseClient.js';
+
+const router = Router();
 
 // Get all employees and managers
 router.get('/get-employees', ClerkExpressWithAuth(), async (req, res) => {
   try {
     // Check if user is a manager
-    const { data: userData, error: userError } = await supabaseServer
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('role')
       .eq('clerk_user_id', req.auth.userId)
@@ -18,7 +21,7 @@ router.get('/get-employees', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Get all employees and managers
-    const { data: employees, error: employeesError } = await supabaseServer
+    const { data: employees, error: employeesError } = await supabase
       .from('users')
       .select('id, clerk_user_id, first_name, last_name, email, role, phone, created_at')
       .in('role', ['employee', 'manager'])
@@ -49,7 +52,7 @@ router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Check if user is a manager
-    const { data: userData, error: userError } = await supabaseServer
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('role')
       .eq('clerk_user_id', req.auth.userId)
@@ -60,7 +63,7 @@ router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Check if email already exists
-    const { data: existingUser, error: existingError } = await supabaseServer
+    const { data: existingUser, error: existingError } = await supabase
       .from('users')
       .select('id')
       .eq('email', email)
@@ -71,7 +74,7 @@ router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Insert new employee
-    const { data: newEmployee, error: insertError } = await supabaseServer
+    const { data: newEmployee, error: insertError } = await supabase
       .from('users')
       .insert({
         clerk_user_id: `temp_${Date.now()}`,
@@ -88,7 +91,7 @@ router.post('/add-employee', ClerkExpressWithAuth(), async (req, res) => {
     if (insertError) throw insertError;
 
     // Create welcome notification
-    const { error: notificationError } = await supabaseServer
+    const { error: notificationError } = await supabase
       .from('notifications')
       .insert({
         to_user_id: newEmployee.id,
@@ -119,7 +122,7 @@ router.put('/update-employee/:id', ClerkExpressWithAuth(), async (req, res) => {
   
   try {
     // Check if user is a manager
-    const { data: userData, error: userError } = await supabaseServer
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('role')
       .eq('clerk_user_id', req.auth.userId)
@@ -136,8 +139,7 @@ router.put('/update-employee/:id', ClerkExpressWithAuth(), async (req, res) => {
 
     // Check if email already exists for different user
     if (email) {
-      const { data: existingUser, error: existingError } = await supabaseServer
-        .from('users')
+      const { data: existingUser, error: existingError } = await supabase
         .select('id')
         .eq('email', email)
         .neq('id', id)
@@ -149,7 +151,7 @@ router.put('/update-employee/:id', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Update employee
-    const { data: updatedEmployee, error: updateError } = await supabaseServer
+    const { data: updatedEmployee, error: updateError } = await supabase
       .from('users')
       .update({
         first_name: firstName,
@@ -182,4 +184,4 @@ router.put('/update-employee/:id', ClerkExpressWithAuth(), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

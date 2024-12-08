@@ -2,7 +2,7 @@
 
 "use client";
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../lib/supabase-browser'
+import { supabase } from '../../../backend/database/supabaseClient';
 import { useUser } from '@clerk/nextjs';
 
 const EmployeeCalendar = () => {

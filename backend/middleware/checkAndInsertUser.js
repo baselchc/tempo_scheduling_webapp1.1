@@ -1,6 +1,6 @@
 // backend/middleware/checkAndInsertUser.js
 
-import { supabaseServer } from '../../lib/supabase-server';
+import { supabase } from '../database/supabaseClient';
 
 const checkAndInsertUser = async (req, res, next) => {
   try {
@@ -12,7 +12,7 @@ const checkAndInsertUser = async (req, res, next) => {
     console.log('Checking user in database for Clerk userId:', req.auth.userId);
 
     // Check if user exists
-    const { data: existingUser, error: fetchError } = await supabaseServer
+    const { data: existingUser, error: fetchError } = await supabase
       .from('users')
       .select('*')
       .eq('clerk_user_id', req.auth.userId)
@@ -40,7 +40,7 @@ const checkAndInsertUser = async (req, res, next) => {
       });
 
       // Check if email already exists
-      const { data: emailCheck } = await supabaseServer
+      const { data: emailCheck } = await supabase
         .from('users')
         .select('id')
         .eq('email', email)
@@ -51,7 +51,7 @@ const checkAndInsertUser = async (req, res, next) => {
       }
 
       // Insert new user
-      const { data: newUser, error: insertError } = await supabaseServer
+      const { data: newUser, error: insertError } = await supabase
         .from('users')
         .insert({
           clerk_user_id: req.auth.userId,

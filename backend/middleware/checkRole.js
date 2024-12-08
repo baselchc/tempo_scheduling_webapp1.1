@@ -1,6 +1,7 @@
 // backend/middleware/checkRole.js
 
-import { supabaseServer } from '../../lib/supabase-server';
+
+import { supabase } from '../database/supabaseClient';
 
 const checkRole = (allowedRoles) => {
   return async (req, res, next) => {
@@ -9,7 +10,7 @@ const checkRole = (allowedRoles) => {
       const userId = req.auth.userId;
 
       // Query Supabase to get user's role
-      const { data: userData, error } = await supabaseServer
+      const { data: userData, error } = await supabase
         .from('users')
         .select('role')
         .eq('clerk_user_id', userId)

@@ -1,9 +1,11 @@
 // backend / routes / clerkWebhooks.js
 
-const express = require('express');
-const router = express.Router();
-const { Webhook } = require('svix');
-import { supabaseServer } from '../../lib/supabase-server';
+import express  from 'express';
+import { Router } from 'express';
+import { Webhook } from 'svix';
+import { supabase} from '../database/supabaseClient.js';
+
+const router = Router();
 
 router.post('/', express.raw({ type: 'application/json' }), async (req, res) => {
   try {
@@ -61,7 +63,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           last_name
         });
 
-        const { data: newUser, error: createError } = await supabaseServer
+        const { data: newUser, error: createError } = await supabase
           .from('users')
           .upsert({
             clerk_user_id: id,
@@ -87,7 +89,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
         console.log('Attempting to delete user with clerk_user_id:', payload.data.id);
 
         // Get user info before deletion for logging
-        const { data: userData, error: fetchError } = await supabaseServer
+        const { data: userData, error: fetchError } = await supabase
           .from('users')
           .select('id, first_name, last_name')
           .eq('clerk_user_id', payload.data.id)
@@ -102,7 +104,7 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
           console.log(`Found user to delete: ${userData.first_name} ${userData.last_name} (ID: ${userData.id})`);
 
           // Delete user (Supabase cascade rules will handle related records)
-          const { error: deleteError } = await supabaseServer
+          const { error: deleteError } = await supabase
             .from('users')
             .delete()
             .eq('clerk_user_id', payload.data.id);
@@ -142,4 +144,4 @@ router.post('/', express.raw({ type: 'application/json' }), async (req, res) => 
   }
 });
 
-module.exports = router;
+export default router;

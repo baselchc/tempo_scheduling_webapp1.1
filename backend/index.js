@@ -1,22 +1,24 @@
-const express = require('express');
-const next = require('next');
-const path = require('path');
-const cors = require('cors');
-const bodyParser = require('body-parser');
-const errorHandler = require('./middleware/errorHandler');
-import { supabaseServer } from '../../lib/supabase-server';
+import express from 'express';
+import next from 'next';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+import dotenv from 'dotenv';
+import { supabase } from './database/supabaseClient.js';
 
 // Import route handlers
-const userRoutes = require('./routes/userRoutes');
-const clerkWebhooks = require('./routes/clerkWebhooks');
-const scheduleRoutes = require('./routes/scheduleRoutes');
-const employeeRoutes = require('./routes/employeeRoutes');
+import userRoutes from './routes/userRoutes.js';
+import clerkWebhooks from './routes/clerkWebhooks.js';
+import scheduleRoutes from './routes/scheduleRoutes.js';
+import employeeRoutes from './routes/employeeRoutes.js';
+import errorHandler from './middleware/errorHandler.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Load environment variables
-require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
-console.log('Environment:', process.env.NODE_ENV);
-console.log('CLERK_WEBHOOK_SECRET:', process.env.CLERK_WEBHOOK_SECRET ? 'is set' : 'is NOT set');
-console.log('SUPABASE_URL:', process.env.SUPABASE_URL ? 'is set' : 'is NOT set');
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({ dev, dir: path.join(__dirname, '..') });
@@ -38,10 +40,19 @@ const setupServer = async () => {
     allowedHeaders: ['Content-Type', 'Authorization']
   }));
 
+  // Debug middleware
+  app.use((req, res, next) => {
+    console.log('Incoming request:', req.method, req.path);
+    next();
+  });
+
   // Health check endpoint
   app.get('/health', async (req, res) => {
+    console.log('Health check endpoint hit');
     try {
-      const { data, error } = await supabaseServer.from('users').select('count').single();
+      console.log('Attempting Supabase query...');
+      const { data, error } = await supabase.from('users').select('count').single();
+      console.log('Supabase response:', { data, error });
       if (error) throw error;
       res.json({ 
         status: 'OK', 
@@ -49,6 +60,7 @@ const setupServer = async () => {
         database: 'Connected'
       });
     } catch (error) {
+      console.error('Health check error:', error);
       res.status(500).json({ 
         status: 'ERROR',
         timestamp: new Date().toISOString(),
@@ -70,11 +82,13 @@ const setupServer = async () => {
 
   // Test database connection
   try {
-    const { data, error } = await supabaseServer
+    console.log('Testing database connection...');
+    const { data, error } = await supabase
       .from('users')
       .select('count')
       .single();
     
+    console.log('Database test response:', { data, error });
     if (error) throw error;
     console.log('Supabase connection successful');
   } catch (err) {
@@ -102,7 +116,7 @@ const setupServer = async () => {
 
 let server = null;
 
-if (require.main === module) {
+if (import.meta.url.endsWith('index.js')) {
   setupServer().then((app) => {
     const port = process.env.PORT || 5000;
     server = app.listen(port, (err) => {
@@ -147,4 +161,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-module.exports = setupServer;
+export default setupServer;

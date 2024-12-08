@@ -1,14 +1,20 @@
-const express = require('express');
-const router = express.Router();
-const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
-import { supabaseServer } from '../../lib/supabase-server';
-const { AutoScheduler } = require('../services/autoScheduler');
+//backend/routes/scheduleRoutes.js
+
+import express from 'express';
+import { Router } from 'express';
+import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import { supabase } from '../database/supabaseClient.js';
+import autoScheduler from '../services/autoScheduler.js';
+
+
+const router = Router();
+const { AutoScheduler } = autoScheduler;
 
 // Create a new schedule manually
 router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
   try {
     // Check if user is a manager
-    const { data: userData, error: userError } = await supabaseServer
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('role')
       .eq('clerk_user_id', req.auth.userId)
@@ -29,7 +35,7 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Verify manager and employee exist
-    const { data: users, error: usersError } = await supabaseServer
+    const { data: users, error: usersError } = await supabase
       .from('users')
       .select('id, role')
       .in('id', [manager_id, employee_id]);
@@ -39,7 +45,7 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Check for schedule conflicts
-    const { data: conflicts } = await supabaseServer
+    const { data: conflicts } = await supabase
       .from('schedules')
       .select('id')
       .eq('employee_id', employee_id)
@@ -51,7 +57,7 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
     }
 
     // Create schedule
-    const { data: schedule, error: scheduleError } = await supabaseServer
+    const { data: schedule, error: scheduleError } = await supabase
       .from('schedules')
       .insert({
         manager_id,
@@ -66,7 +72,7 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
     if (scheduleError) throw scheduleError;
 
     // Create notification for employee
-    await supabaseServer
+    await supabase
       .from('notifications')
       .insert({
         user_id: employee_id,
@@ -85,7 +91,7 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
 // Get employee schedule
 router.get('/employee-schedule/:employeeId', ClerkExpressWithAuth(), async (req, res) => {
   try {
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_user_id', req.params.employeeId)
@@ -95,7 +101,7 @@ router.get('/employee-schedule/:employeeId', ClerkExpressWithAuth(), async (req,
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const { data: schedules, error: schedulesError } = await supabaseServer
+    const { data: schedules, error: schedulesError } = await supabase
       .from('schedules')
       .select(`
         id,
@@ -131,7 +137,7 @@ router.put('/update-status/:scheduleId', ClerkExpressWithAuth(), async (req, res
 
   try {
     // Get schedule and employee info
-    const { data: schedule, error: scheduleError } = await supabaseServer
+    const { data: schedule, error: scheduleError } = await supabase
       .from('schedules')
       .select(`
         *,
@@ -150,7 +156,7 @@ router.put('/update-status/:scheduleId', ClerkExpressWithAuth(), async (req, res
 
     // Check authorization
     if (schedule.employee.clerk_user_id !== req.auth.userId) {
-      const { data: userData } = await supabaseServer
+      const { data: userData } = await supabase
         .from('users')
         .select('role')
         .eq('clerk_user_id', req.auth.userId)
@@ -162,7 +168,7 @@ router.put('/update-status/:scheduleId', ClerkExpressWithAuth(), async (req, res
     }
 
     // Update schedule status
-    const { data: updatedSchedule, error: updateError } = await supabaseServer
+    const { data: updatedSchedule, error: updateError } = await supabase
       .from('schedules')
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', scheduleId)
@@ -172,7 +178,7 @@ router.put('/update-status/:scheduleId', ClerkExpressWithAuth(), async (req, res
     if (updateError) throw updateError;
 
     // Create notification
-    await supabaseServer
+    await supabase
       .from('notifications')
       .insert({
         user_id: schedule.manager_id,
@@ -200,7 +206,7 @@ router.get('/weekly-schedule/:employeeId', ClerkExpressWithAuth(), async (req, r
   }
 
   try {
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_user_id', employeeId)
@@ -213,7 +219,7 @@ router.get('/weekly-schedule/:employeeId', ClerkExpressWithAuth(), async (req, r
     const weekEnd = new Date(week_start);
     weekEnd.setDate(weekEnd.getDate() + 7);
 
-    const { data: schedules, error: schedulesError } = await supabaseServer
+    const { data: schedules, error: schedulesError } = await supabase
       .from('schedules')
       .select(`
         id,
@@ -249,7 +255,7 @@ router.get('/monthly-schedule', ClerkExpressWithAuth(), async (req, res) => {
     const firstDay = new Date(date.getFullYear(), date.getMonth(), 1);
     const lastDay = new Date(date.getFullYear(), date.getMonth() + 1, 0);
 
-    const { data: schedules, error } = await supabaseServer
+    const { data: schedules, error } = await supabase
       .from('schedules')
       .select(`
         *,
@@ -282,4 +288,4 @@ router.get('/monthly-schedule', ClerkExpressWithAuth(), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

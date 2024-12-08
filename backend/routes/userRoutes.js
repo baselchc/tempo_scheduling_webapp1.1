@@ -1,16 +1,18 @@
 // backend/routes/userRoutes.js
 
-const express = require('express');
-const router = express.Router();
-const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
-import { supabaseServer } from '../../lib/supabase-server';
+import express from 'express';
+import { Router } from 'express';
+import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
+import { supabase } from '../database/supabaseClient.js';
+
+const router = Router();
 
 // GET route to fetch user profile
 router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
   const userId = req.auth.userId;
   
   try {
-    const { data: user, error } = await supabaseServer
+    const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('clerk_user_id', userId)
@@ -24,7 +26,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       const email = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress;
       
       // Check if user exists with this email
-      const { data: existingUser } = await supabaseServer
+      const { data: existingUser } = await supabase
         .from('users')
         .select('*')
         .eq('email', email)
@@ -32,7 +34,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
 
       if (existingUser) {
         // Update existing user with clerk_user_id
-        const { data: updatedUser, error: updateError } = await supabaseServer
+        const { data: updatedUser, error: updateError } = await supabase
           .from('users')
           .update({
             clerk_user_id: userId,
@@ -48,7 +50,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
       }
 
       // Create new user
-      const { data: newUser, error: insertError } = await supabaseServer
+      const { data: newUser, error: insertError } = await supabase
         .from('users')
         .insert({
           clerk_user_id: userId,
@@ -77,7 +79,7 @@ router.put('/profile', ClerkExpressWithAuth(), async (req, res) => {
   const { firstName, lastName, email, phone, username } = req.body;
 
   try {
-    const { data: user, error: userError } = await supabaseServer
+    const { data: user, error: userError } = await supabase
       .from('users')
       .update({
         first_name: firstName,
@@ -105,7 +107,7 @@ router.get('/availability', ClerkExpressWithAuth(), async (req, res) => {
   const userId = req.auth.userId;
 
   try {
-    const { data: userData } = await supabaseServer
+    const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_user_id', userId)
@@ -117,7 +119,7 @@ router.get('/availability', ClerkExpressWithAuth(), async (req, res) => {
     monday.setDate(monday.getDate() - monday.getDay() + 1);
     monday.setHours(0, 0, 0, 0);
 
-    const { data: availability, error } = await supabaseServer
+    const { data: availability, error } = await supabase
       .from('availability')
       .select('*')
       .eq('user_id', userData.id)
@@ -174,7 +176,7 @@ router.put('/availability', ClerkExpressWithAuth(), async (req, res) => {
   const { availability } = req.body;
 
   try {
-    const { data: userData } = await supabaseServer
+    const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('clerk_user_id', userId)
@@ -186,7 +188,7 @@ router.put('/availability', ClerkExpressWithAuth(), async (req, res) => {
     monday.setDate(monday.getDate() - monday.getDay() + 1);
     monday.setHours(0, 0, 0, 0);
 
-    const { data: updatedAvailability, error } = await supabaseServer
+    const { data: updatedAvailability, error } = await supabase
       .from('availability')
       .upsert({
         user_id: userData.id,
@@ -209,13 +211,13 @@ router.put('/availability', ClerkExpressWithAuth(), async (req, res) => {
     if (error) throw error;
 
     // Create notification for managers
-    const { data: managers } = await supabaseServer
+    const { data: managers } = await supabase
       .from('users')
       .select('id')
       .eq('role', 'manager');
 
     if (managers) {
-      await supabaseServer
+      await supabase
         .from('notifications')
         .insert(managers.map(manager => ({
           to_user_id: manager.id,
@@ -235,4 +237,4 @@ router.put('/availability', ClerkExpressWithAuth(), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -10,7 +10,7 @@ import { CheckCircle, ArrowForward } from '@mui/icons-material'; // Import icons
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import EmployeeCalendar from './components/Calendar';
-import { supabase } from '../../lib/supabase-browser'
+import { supabase } from '../../backend/database/supabaseClient';
 
 export default function EmployeePage() {
   const { signOut, getToken } = useAuth();
