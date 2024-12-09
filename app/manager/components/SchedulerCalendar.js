@@ -50,90 +50,83 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange }, ref) => {
     if (!user || isLoadingRef.current || !mountedRef.current) return;
     
     try {
-      console.log('Starting data fetch...');
       isLoadingRef.current = true;
       setLoading(true);
       setError(null);
       
       const token = await getToken();
-      console.log('Got auth token');
       
       const monthStr = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
         1
       ).toISOString();
+      console.log('Fetching calendar data:', {
+        apiUrl,
+        token: token ? 'present' : 'missing',
+        monthStr
+      });
   
-      console.log('Fetching data for month:', monthStr);
-  
+      // Get employees
       try {
-        const employeesResponse = await axios.get(`${apiUrl}/api/employees/get-employees`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const employeesResponse = await axios.get(`${apiUrl}/api/schedule/employees`, {
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true,
+          // Add timeout and additional error handling
+          timeout: 5000,
+          validateStatus: function (status) {
+            return status >= 200 && status < 500; // Handle all responses
+          }
         });
-        console.log('Employees API response:', {
-          status: employeesResponse.status,
-          count: employeesResponse.data?.length,
-          data: employeesResponse.data
-        });
+        
+        console.log('Raw employees response:', employeesResponse);
+        
+        if (employeesResponse.status === 204) {
+          console.log('No employees found');
+          setEmployees([]);
+        } else if (employeesResponse.data) {
+          console.log('Employees found:', employeesResponse.data);
+          setEmployees(employeesResponse.data);
+        }
   
+        // Get schedule
         const scheduleResponse = await axios.get(`${apiUrl}/api/schedule/monthly-schedule`, {
           params: { month: monthStr },
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          withCredentials: true,
+          timeout: 5000,
+          validateStatus: function (status) {
+            return status >= 200 && status < 500;
+          }
         });
-        console.log('Schedule API response:', {
-          status: scheduleResponse.status,
-          count: scheduleResponse.data?.length,
-          data: scheduleResponse.data
-        });
+        console.log('Full schedule response:', scheduleResponse);
   
         if (mountedRef.current) {
-          const employees = employeesResponse.data || [];
-          console.log('Processed employees:', {
-            count: employees.length,
-            roles: employees.reduce((acc, e) => {
-              acc[e.role] = (acc[e.role] || 0) + 1;
-              return acc;
-            }, {})
-          });
-  
-          const rawSchedule = scheduleResponse.data || [];
-          console.log('Schedule processing:', {
-            totalShifts: rawSchedule.length,
-            uniqueDates: new Set(rawSchedule.map(s => s.date)).size,
-            uniqueEmployees: new Set(rawSchedule.map(s => s.employee_id)).size
-          });
-  
-          const formattedSchedule = rawSchedule.map(s => ({
-            ...s,
-            date: new Date(s.date).toISOString().split('T')[0],
-            employee: employees.find(e => e.id === s.employee_id)
-          }));
-  
-          console.log('Final data state:', {
-            employeeCount: employees.length,
-            scheduleCount: formattedSchedule.length,
-            sampleShift: formattedSchedule[0]
-          });
-  
-          setEmployees(employees);
-          setSchedule(formattedSchedule);
+          setEmployees(employeesResponse.data || []);
+          setSchedule(scheduleResponse.data || []);
         }
       } catch (apiError) {
-        console.error('API call failed:', {
-          message: apiError.message,
-          response: apiError.response?.data,
-          status: apiError.response?.status
+        console.error('API Error:', {
+          status: apiError.response?.status,
+          data: apiError.response?.data,
+          message: apiError.message
         });
         throw apiError;
       }
     } catch (error) {
-      console.error('Detailed fetch error:', {
+      console.error('Calendar fetch error:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
         stack: error.stack
       });
-      setError(error.response?.data?.error || 'Failed to fetch calendar data');
+      setError(`Failed to fetch calendar data: ${error.response?.data?.error || error.message}`);
     } finally {
       if (mountedRef.current) {
         setLoading(false);

@@ -2,12 +2,68 @@
 
 import { Router } from 'express';
 import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
-import { supabase } from '../database/supabaseClient.js';
+import { supabase, supabaseAdmin } from '../database/supabaseClient.js';
 import autoScheduler from '../services/autoScheduler.js';
-
 
 const router = Router();
 const { AutoScheduler } = autoScheduler;
+
+// Get employees with availability
+router.get('/employees', ClerkExpressWithAuth(), async (req, res) => {
+  console.log('Received request headers:', {
+    origin: req.headers.origin,
+    authorization: req.headers.authorization ? 'present' : 'missing',
+    allHeaders: req.headers
+  });
+  
+  try {
+    
+    // Check if user is a manager first
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
+
+    console.log('Manager check:', { userData, userError });
+
+    if (userError || !userData || userData.role !== 'manager') {
+      console.log('Not a manager:', { userError, userData });
+      return res.status(403).json({ error: 'Only managers can view employee list' });
+    }
+
+    // Get employees with availability
+    const { data: employees, error } = await supabaseAdmin
+      .from('users')
+      .select(`
+        id,
+        first_name,
+        last_name,
+        email,
+        role,
+        availability (*)
+      `)
+      .eq('role', 'employee');
+
+    console.log('Employee query result:', { count: employees?.length, error });
+
+    if (error) {
+      console.error('Error fetching employees:', error);
+      throw error;
+    }
+
+    console.log('Sending response:', employees);
+    res.json(employees);
+
+  } catch (error) {
+    console.error('Error in employees endpoint:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch employees',
+      details: error.message,
+      stack: error.stack
+    });
+  }
+});
 
 // Create a new schedule manually
 router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {

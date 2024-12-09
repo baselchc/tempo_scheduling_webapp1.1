@@ -1,7 +1,7 @@
 // backend/routes/userRoutes.js
 
-import express from 'express';
 import { Router } from 'express';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 import { ClerkExpressWithAuth } from '@clerk/clerk-sdk-node';
 import { supabase } from '../database/supabaseClient.js';
 
@@ -12,17 +12,26 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
   const userId = req.auth.userId;
   
   try {
+    console.log('Fetching profile for clerk_user_id:', userId);
+
     const { data: user, error } = await supabase
       .from('users')
       .select('*')
       .eq('clerk_user_id', userId)
       .single();
 
-    if (error) throw error;
+    console.log('Initial query result:', { user, error });
+
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
 
     if (!user) {
-      // Get Clerk user data
+      console.log('User not found, fetching from Clerk...');
       const clerkUser = await clerkClient.users.getUser(userId);
+      console.log('Clerk user data:', clerkUser);
+      
       const email = clerkUser.emailAddresses.find(e => e.id === clerkUser.primaryEmailAddressId)?.emailAddress;
       
       // Check if user exists with this email
@@ -33,6 +42,7 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
         .single();
 
       if (existingUser) {
+        console.log('Found existing user by email:', existingUser);
         // Update existing user with clerk_user_id
         const { data: updatedUser, error: updateError } = await supabase
           .from('users')
@@ -69,7 +79,11 @@ router.get('/profile', ClerkExpressWithAuth(), async (req, res) => {
     res.json(user);
   } catch (error) {
     console.error('Error in profile route:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: error.message,
+      stack: error.stack,
+      userId: userId 
+    });
   }
 });
 
