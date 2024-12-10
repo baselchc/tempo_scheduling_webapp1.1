@@ -1,3 +1,5 @@
+// app/employee/components/SideBar.js
+
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Sidebar = ({ isOpen, onClose }) => {

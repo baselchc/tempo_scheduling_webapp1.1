@@ -1,3 +1,5 @@
+// app/manager/schedule/page.js
+
 "use client";
 
 import { useUser, useAuth } from '@clerk/nextjs';

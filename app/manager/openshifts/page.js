@@ -1,3 +1,5 @@
+// app/manager/openshifts/page.js
+
 "use client";
 
 import { useUser, useAuth } from "@clerk/nextjs";
@@ -6,7 +8,7 @@ import NavBar from "../components/NavBar";
 import { Notifications } from "@mui/icons-material";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { supabase } from '../../../backend/database/supabaseClient';
+import { supabase } from '../../../backend/database/supabaseClient'
 
 const apiUrl = process.env.NODE_ENV === 'production'
   ? 'https://tempo-scheduling-webapp1-1.vercel.app'
