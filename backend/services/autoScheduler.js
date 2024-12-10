@@ -1,11 +1,10 @@
 const { google } = require('googleapis');
-const { supabase } = require('../database/supabaseClient'); // Adjust the path to your supabaseClient.js
+const { supabase } = require('../database/supabaseClient');
 
 class AutoScheduler {
   constructor(monthStart) {
     if (!(monthStart instanceof Date)) {
       this.monthStart = new Date(monthStart);
-      console.log('Parsed monthStart:', this.monthStart);
       if (isNaN(this.monthStart.getTime())) {
         throw new Error('Invalid date provided to AutoScheduler');
       }
@@ -27,15 +26,12 @@ class AutoScheduler {
 
     console.log('AutoScheduler initialized with:', {
       monthStart: this.monthStart.toISOString(),
-      monthEnd: this.monthEnd.toISOString()
+      monthEnd: this.monthEnd.toISOString(),
     });
 
-    // Constants for scheduling logic
     this.MAX_WEEKLY_HOURS = 40;
     this.EMPLOYEES_PER_SHIFT = 2;
     this.SHIFT_HOURS = 4;
-    this.MANAGER_HOURS = 8;
-
     this.calendar = this.initializeCalendar();
   }
 
@@ -47,301 +43,179 @@ class AutoScheduler {
           auth: new google.auth.GoogleAuth({
             credentials: {
               client_email: process.env.GOOGLE_CLIENT_EMAIL,
-              private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n')
+              private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
             },
-            scopes: ['https://www.googleapis.com/auth/calendar']
-          })
+            scopes: ['https://www.googleapis.com/auth/calendar'],
+          }),
         });
       } catch (error) {
-        console.log('Google Calendar initialization skipped:', error.message);
+        console.log('Google Calendar initialization failed:', error.message);
         return null;
       }
     }
     return null;
   }
 
-  async createShift(date, shiftType, employee, managerId) {
-    const shift = {
-      date: date.toISOString().split('T')[0],
-      shift_type: shiftType,
-      employee_id: employee.id,
-      manager_id: managerId,
-      status: 'scheduled'
-    };
-
-    if (this.calendar) {
-      try {
-        const event = {
-          summary: `${employee.first_name} ${employee.last_name} - ${shiftType} Shift`,
-          description: `Employee ID: ${employee.id}`,
-          start: {
-            dateTime: `${shift.date}T${shiftType === 'morning' ? '09:00:00' : '13:00:00'}`,
-            timeZone: 'America/Edmonton',
-          },
-          end: {
-            dateTime: `${shift.date}T${shiftType === 'morning' ? '13:00:00' : '17:00:00'}`,
-            timeZone: 'America/Edmonton',
-          },
-          attendees: [{ email: employee.email }],
-          status: 'confirmed',
-        };
-
-        await this.calendar.events.insert({
-          calendarId: 'primary',
-          resource: event,
-          sendNotifications: true,
-        });
-      } catch (error) {
-        console.log('Calendar event creation skipped:', error.message);
-      }
-    }
-
-    return shift;
+  getDayName(dayIndex) {
+    const days = [
+      'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+    ];
+    return days[dayIndex];
   }
 
-  async hasCapacity(date, employeeId, schedule) {
-    const weekStart = new Date(date);
-    weekStart.setDate(date.getDate() - date.getDay());
-    weekStart.setHours(0, 0, 0, 0);
+  // Utility to calculate ISO week of the year
+  getWeek(date) {
+    const newDate = new Date(date.getTime());
+    newDate.setHours(0, 0, 0, 0);
+    newDate.setDate(newDate.getDate() + 4 - (newDate.getDay() || 7));
+    const yearStart = new Date(newDate.getFullYear(), 0, 1);
+    const weekNumber = Math.ceil(((newDate - yearStart) / 86400000 + 1) / 7);
+    return weekNumber;
+  }
 
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
+  hasCapacity(date, employeeId, schedule) {
+    const currentWeek = this.getWeek(date);
+    const weeklyHours = schedule.filter((shift) => {
+      const shiftDate = new Date(shift.date);
+      return (
+        shift.employee_id === employeeId && this.getWeek(shiftDate) === currentWeek
+      );
+    }).length * this.SHIFT_HOURS;
 
-    const weeklyHours = schedule
-      .filter(shift =>
-        shift.employee_id === employeeId &&
-        new Date(shift.date) >= weekStart &&
-        new Date(shift.date) <= weekEnd
-      )
-      .length * this.SHIFT_HOURS;
-
-    return (weeklyHours + this.SHIFT_HOURS) <= this.MAX_WEEKLY_HOURS;
+    return weeklyHours + this.SHIFT_HOURS <= this.MAX_WEEKLY_HOURS;
   }
 
   async generateSchedule() {
+    console.time('Schedule Generation');
     try {
-      // Clear existing schedule for the month
+      console.time('Clear Existing Schedule');
       const { error: deleteError } = await supabase
         .from('schedules')
         .delete()
         .gte('date', this.monthStart.toISOString())
         .lte('date', this.monthEnd.toISOString());
-
       if (deleteError) throw deleteError;
+      console.timeEnd('Clear Existing Schedule');
 
-      // Get managers
-      const { data: managers, error: managersError } = await supabase
-        .from('users')
-        .select('id, first_name, last_name, email')
-        .eq('role', 'manager');
+      console.time('Fetch Managers and Employees');
+      const [managersResult, employeesResult] = await Promise.all([
+        supabase
+          .from('users')
+          .select('id, first_name, last_name, email')
+          .eq('role', 'manager'),
+        supabase
+          .from('users')
+          .select(`
+            id,
+            first_name,
+            last_name,
+            email,
+            availability:availability(*)
+          `)
+          .eq('role', 'employee'),
+      ]);
 
-      if (managersError) throw managersError;
-      if (!managers.length) {
-        throw new Error('No manager found in the system');
+      const managers = managersResult.data;
+      const employees = employeesResult.data.map((employee) => {
+        const availability = employee.availability.reduce((acc, day) => {
+          return { ...acc, ...day };
+        }, {});
+        return { ...employee, availability };
+      });
+      console.timeEnd('Fetch Managers and Employees');
+
+      if (!managers || managers.length === 0) {
+        console.error('No managers found in the system.');
+        throw new Error('No managers found in the system');
       }
 
-      // Get employees with availability
-      const { data: employees, error: employeesError } = await supabase
-        .from('users')
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          role,
-          availability (
-            monday_morning,
-            monday_afternoon,
-            tuesday_morning,
-            tuesday_afternoon,
-            wednesday_morning,
-            wednesday_afternoon,
-            thursday_morning,
-            thursday_afternoon,
-            friday_morning,
-            friday_afternoon
-          )
-        `)
-        .eq('role', 'employee');
-
-      if (employeesError) throw employeesError;
-      if (!employees.length) {
-        throw new Error('No employees found to generate schedule');
+      if (!employees || employees.length === 0) {
+        console.error('No employees found in the system.');
+        console.error('Employees Query Result:', JSON.stringify(employeesResult, null, 2));
+        throw new Error('No employees found in the system');
       }
 
-      const employeesWithAvailability = employees.map(emp => ({
-        ...emp,
-        ...emp.availability?.[0]
-      }));
+      console.log('Fetched managers:', JSON.stringify(managers, null, 2));
+      console.log('Fetched employees:', JSON.stringify(employees, null, 2));
 
       const schedule = [];
-      let currentDate = new Date(this.monthStart);
       const employeeHours = {};
-      let managerIndex = 0;
-
-      employeesWithAvailability.forEach(emp => {
-        employeeHours[emp.id] = 0;
-      });
+      let currentDate = new Date(this.monthStart);
 
       while (currentDate <= this.monthEnd) {
         const dayName = this.getDayName(currentDate.getDay()).toLowerCase();
 
         if (dayName !== 'saturday' && dayName !== 'sunday') {
-          const selectedManager = managers[managerIndex];
-          const managerShift = await this.createManagerShift(
-            currentDate,
-            selectedManager,
-            selectedManager.id
-          );
-          schedule.push(managerShift);
-
-          managerIndex = (managerIndex + 1) % managers.length;
-
           for (const shiftType of ['morning', 'afternoon']) {
             const availabilityKey = `${dayName}_${shiftType}`;
-            let availableEmployees = employeesWithAvailability.filter(employee => {
-              const isAvailable = employee[availabilityKey];
-              const hasCapacity = this.hasCapacity(currentDate, employee.id, schedule);
-              return isAvailable && hasCapacity;
-            });
+            const availableEmployees = employees.filter((employee) => {
+              if (!employee.availability || Object.keys(employee.availability).length === 0) {
+                console.warn(
+                  `Employee ${employee.first_name} ${employee.last_name} (ID: ${employee.id}) has no availability data.`
+                );
+                return false;
+              }
 
-            for (let i = 0; i < this.EMPLOYEES_PER_SHIFT && availableEmployees.length > 0; i++) {
-              const selectedEmployee = this.selectBestEmployee(
-                availableEmployees,
-                employeeHours,
+              const isAvailable = employee.availability[availabilityKey];
+              const hasCapacity = this.hasCapacity(
+                currentDate,
+                employee.id,
                 schedule
               );
 
-              const shift = await this.createShift(
-                currentDate,
-                shiftType,
-                selectedEmployee,
-                selectedManager.id
-              );
+              if (!isAvailable) {
+                console.warn(
+                  `Employee ${employee.first_name} ${employee.last_name} (ID: ${employee.id}) is not available for ${availabilityKey}.`
+                );
+              }
 
-              schedule.push(shift);
-              employeeHours[selectedEmployee.id] = (employeeHours[selectedEmployee.id] || 0) + this.SHIFT_HOURS;
-              availableEmployees = availableEmployees.filter(emp => emp.id !== selectedEmployee.id);
+              return isAvailable && hasCapacity;
+            });
+
+            if (availableEmployees.length === 0) {
+              console.warn(
+                `No employees available for ${shiftType} shift on ${currentDate.toISOString()}`
+              );
+              continue;
             }
+
+            availableEmployees.forEach((employee) => {
+              schedule.push({
+                date: currentDate.toISOString().split('T')[0],
+                shift_type: shiftType,
+                employee_id: employee.id,
+              });
+              employeeHours[employee.id] =
+                (employeeHours[employee.id] || 0) + this.SHIFT_HOURS;
+            });
           }
         }
 
         currentDate.setDate(currentDate.getDate() + 1);
       }
 
-      // Batch insert all shifts
+      console.time('Insert Shifts');
       const { error: insertError } = await supabase
         .from('schedules')
         .insert(schedule);
+      if (insertError) {
+        console.error('Error inserting shifts into the database:', insertError);
+        throw insertError;
+      }
+      console.timeEnd('Insert Shifts');
 
-      if (insertError) throw insertError;
-
-      return {
-        schedule,
-        summary: this.generateScheduleSummary(schedule, employeeHours),
-        employeeHours
-      };
+      console.timeEnd('Schedule Generation');
+      return schedule;
     } catch (error) {
-      console.error('Schedule generation failed:', error);
+      console.error('Error during schedule generation:', error.message);
       throw error;
     }
-  }
-
-  getDayName(dayIndex) {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return days[dayIndex];
-  }
-
-  generateScheduleSummary(schedule, employeeHours) {
-    return {
-      totalShifts: schedule.length,
-      employeeWorkload: Object.entries(employeeHours).map(([empId, hours]) => ({
-        employeeId: empId,
-        hoursScheduled: hours,
-        shiftsScheduled: schedule.filter(s => s.employee_id === empId).length
-      })),
-      daysScheduled: new Set(schedule.map(s => s.date)).size,
-      unfilledShifts: schedule.filter(s => !s.employee_id).length,
-      averageHoursPerEmployee: Object.values(employeeHours).reduce((a, b) => a + b, 0) /
-                             Object.keys(employeeHours).length
-    };
-  }
-
-  selectBestEmployee(availableEmployees, employeeHours, currentShifts) {
-    return availableEmployees.sort((a, b) => {
-      const hoursDiff = (employeeHours[a.id] || 0) - (employeeHours[b.id] || 0);
-      const aConsecutiveDays = this.getConsecutiveDays(a.id, currentShifts);
-      const bConsecutiveDays = this.getConsecutiveDays(b.id, currentShifts);
-
-      if (Math.abs(hoursDiff) > this.SHIFT_HOURS) {
-        return hoursDiff;
-      }
-
-      return aConsecutiveDays - bConsecutiveDays;
-    })[0];
-  }
-
-  getConsecutiveDays(employeeId, shifts) {
-    let consecutiveDays = 0;
-    const today = new Date();
-
-    for (let i = 1; i <= 5; i++) {
-      const checkDate = new Date(today);
-      checkDate.setDate(today.getDate() - i);
-
-      const hasShift = shifts.some(shift =>
-        shift.employee_id === employeeId &&
-        new Date(shift.date).toDateString() === checkDate.toDateString()
-      );
-
-      if (hasShift) {
-        consecutiveDays++;
-      } else {
-        break;
-      }
-    }
-
-    return consecutiveDays;
-  }
-
-  async createManagerShift(date, manager, managerId) {
-    const shift = {
-      date: date.toISOString().split('T')[0],
-      shift_type: 'manager',
-      employee_id: manager.id,
-      manager_id: managerId,
-      status: 'scheduled'
-    };
-
-    if (this.calendar) {
-      try {
-        const event = {
-          summary: `${manager.first_name} ${manager.last_name} - Manager Shift`,
-          description: `Manager ID: ${manager.id}`,
-          start: {
-            dateTime: `${shift.date}T09:00:00`,
-            timeZone: 'America/Edmonton',
-          },
-          end: {
-            dateTime: `${shift.date}T17:00:00`,
-            timeZone: 'America/Edmonton',
-          },
-          attendees: [{ email: manager.email }],
-          status: 'confirmed',
-        };
-
-        await this.calendar.events.insert({
-          calendarId: 'primary',
-          resource: event,
-          sendNotifications: true,
-        });
-      } catch (error) {
-        console.log('Calendar event creation skipped:', error.message);
-      }
-    }
-
-    return shift;
   }
 }
 

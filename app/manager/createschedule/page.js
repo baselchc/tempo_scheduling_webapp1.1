@@ -96,47 +96,76 @@ export default function CreateSchedulePage() {
   };
 
   const handleAutoGenerate = useCallback(async () => {
+    console.log('Starting auto-generate process...');
     setLoading(true);
     setError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+        controller.abort();
+        setError('Request timed out. Please try again.');
+        console.error('Request timed out.');
+    }, 60000);
+
     try {
-      const token = await getToken();
-      const firstDayOfMonth = new Date(
-        currentMonth.getFullYear(),
-        currentMonth.getMonth(),
-        1
-      );
+        const token = await getToken();
+        console.log('Retrieved token:', token);
 
-      const response = await fetch('/api/schedule/generate-schedule', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          monthStart: firstDayOfMonth.toISOString(),
-        }),
-      });
+        if (!token) {
+            throw new Error('Authentication token not available.');
+        }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate schedule');
-      }
+        const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+        console.log('Calculated first day of the month:', firstDayOfMonth.toISOString());
 
-      const result = await response.json();
+        console.log('Sending POST request to /api/schedule/generate-schedule...');
+        const response = await fetch('/api/schedule/generate-schedule', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ monthStart: firstDayOfMonth.toISOString() }),
+            signal: controller.signal,
+        });
 
-      if (calendarRef.current?.refreshData) {
-        await calendarRef.current.refreshData();
-      }
+        console.log('Response status:', response.status);
 
-      alert('Schedule generated successfully!');
+        if (!response.ok) {
+            let errorData;
+            try {
+                errorData = await response.json();
+                console.error('Error response body:', errorData);
+            } catch (parseError) {
+                console.error('Failed to parse error response body.');
+            }
+            throw new Error(errorData?.error || `Failed to generate schedule. Status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('Schedule generated successfully. Result:', result);
+
+        if (calendarRef.current?.refreshData) {
+            console.log('Refreshing calendar data...');
+            await calendarRef.current.refreshData();
+            console.log('Calendar data refreshed.');
+        }
+
+        alert('Schedule generated successfully!');
     } catch (err) {
-      console.error('Error generating schedule:', err.message);
-      setError(err.message);
+        if (err.name === 'AbortError') {
+            console.error('Request aborted due to timeout.');
+        } else {
+            console.error('Error during schedule generation:', err.message);
+        }
+        setError(err.message);
     } finally {
-      setLoading(false);
+        clearTimeout(timeoutId);
+        setLoading(false);
+        console.log('Auto-generate process completed.');
     }
-  }, [getToken, currentMonth]);
-
+}, [getToken, currentMonth]);
+  
   const handleMonthChange = (newMonth) => setCurrentMonth(newMonth);
 
   return (
@@ -171,10 +200,12 @@ export default function CreateSchedulePage() {
         </div>
 
         {error && (
-          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
+        <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            <p>Error: {error}</p>
+    <       p>Please check console logs for more details.</p>
+        </div>
         )}
+
 
         <div className="mt-6 bg-white rounded-lg shadow-lg p-6 text-black">
           <form onSubmit={handleScheduleSubmit}>

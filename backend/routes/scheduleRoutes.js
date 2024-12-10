@@ -4,6 +4,48 @@ const { ClerkExpressWithAuth } = require('@clerk/clerk-sdk-node');
 const { supabase } = require('../database/supabaseClient'); // Import Supabase client
 const { AutoScheduler } = require('../services/autoScheduler');
 
+//Creating a new schedulle automatically:
+// Auto-generate schedule for a month
+router.post('/generate-schedule', ClerkExpressWithAuth(), async (req, res) => {
+  try {
+    // Check if the user is a manager
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
+
+    if (userError || !userData || userData.role !== 'manager') {
+      return res.status(403).json({ error: 'Only managers can generate schedules' });
+    }
+
+    const { monthStart } = req.body;
+
+    if (!monthStart) {
+      return res.status(400).json({ error: 'monthStart is required in the request body' });
+    }
+
+    // Log the input date for debugging
+    console.log('Received monthStart:', monthStart);
+
+    try {
+      const autoScheduler = new AutoScheduler(monthStart);
+      console.log('AutoScheduler initialized successfully.');
+
+      const scheduleResult = await autoScheduler.generateSchedule();
+      console.log('Schedule generated successfully:', scheduleResult);
+
+      res.status(200).json({ success: true, data: scheduleResult });
+    } catch (error) {
+      console.error('Error during schedule generation:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  } catch (error) {
+    console.error('Error in /generate-schedule route:', error.message);
+    res.status(500).json({ error: 'Server Error', details: error.message });
+  }
+});
+
 // Create a new schedule manually
 router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
   try {
@@ -49,6 +91,50 @@ router.post('/create-schedule', ClerkExpressWithAuth(), async (req, res) => {
     if (conflicts && conflicts.length > 0) {
       return res.status(409).json({ error: 'Schedule conflict exists' });
     }
+
+    //Get request for generate-schedule: 
+    // Preview the auto-generated schedule for a month without saving to the database
+router.get('/generate-schedule', ClerkExpressWithAuth(), async (req, res) => {
+  try {
+    // Check if the user is a manager
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('role')
+      .eq('clerk_user_id', req.auth.userId)
+      .single();
+
+    if (userError || !userData || userData.role !== 'manager') {
+      return res.status(403).json({ error: 'Only managers can preview schedules' });
+    }
+
+    const { monthStart } = req.query;
+
+    if (!monthStart) {
+      return res.status(400).json({ error: 'monthStart query parameter is required' });
+    }
+
+    // Log the input date for debugging
+    console.log('Received monthStart for preview:', monthStart);
+
+    try {
+      const autoScheduler = new AutoScheduler(monthStart);
+      console.log('AutoScheduler initialized successfully for preview.');
+
+      // Generate the schedule but do not insert into the database
+      const scheduleResult = await autoScheduler.generateSchedule();
+
+      console.log('Preview schedule generated successfully:', scheduleResult);
+
+      res.status(200).json({ success: true, preview: scheduleResult });
+    } catch (error) {
+      console.error('Error during schedule preview:', error.message);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  } catch (error) {
+    console.error('Error in /generate-schedule GET route:', error.message);
+    res.status(500).json({ error: 'Server Error', details: error.message });
+  }
+});
 
     // Create schedule
     const { data: schedule, error: scheduleError } = await supabase
