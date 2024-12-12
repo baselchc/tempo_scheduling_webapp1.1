@@ -10,7 +10,8 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
 
   const navItems = [
     { name: "Home", href: "/", icon: <Home /> },
-    { name: "Messages", href: "/manager/notifications", icon: <Notifications /> },
+    { name: "Notifications", href: "/manager/notifications", icon: <Notifications /> },
+    { name: "Messages", href: "/manager/messaging", icon: <Message /> },
     { name: "Schedule", href: "/manager/schedule", icon: <Schedule /> },
     { name: "Open Shifts", href: "/manager/openshifts", icon: <Work /> },
     { name: "Profile", href: "/manager/profile", icon: <AccountCircle /> },
