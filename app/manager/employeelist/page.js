@@ -11,6 +11,7 @@ export default function EmployeeListPage() {
   const { getToken } = useAuth();
   const router = useRouter();
 
+  const [expandedEmployee, setExpandedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [availability, setAvailability] = useState({});
   const [firstName, setFirstName] = useState("");
@@ -142,6 +143,45 @@ export default function EmployeeListPage() {
 
   const toggleMenu = () => setMenuOpen(!menuOpen);
 
+
+  const toggleEmployeeDetails = (employeeId) => {
+    setExpandedEmployee(expandedEmployee === employeeId ? null : employeeId);
+  };
+
+  const employeeDetails = (employeeId) => {
+    return (
+      availability[employeeId] && (
+        <ul>
+          <li>
+            <strong>Email: </strong>
+            <span className="text-black">{employees.find(emp => emp.id === employeeId)?.email || 'N/A'}</span>
+          </li>
+          <li>
+            <strong>Phone: </strong>
+            <span className="text-black">{employees.find(emp => emp.id === employeeId)?.phone || 'N/A'}</span>
+          </li>
+          <li>
+            <strong>Role: </strong>
+            <span className="text-black">{employees.find(emp => emp.id === employeeId)?.role || 'N/A'}</span>
+          </li>
+          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+            <li key={day}>
+              <strong>{day}: </strong>
+              <span className={availability[employeeId][`${day.toLowerCase()}_morning`] ? 'text-green-400' : 'text-red-400'}>
+                Morning: {availability[employeeId][`${day.toLowerCase()}_morning`] ? 'Yes' : 'No'}
+              </span>,{' '}
+              <span className={availability[employeeId][`${day.toLowerCase()}_afternoon`] ? 'text-green-400' : 'text-red-400'}>
+                Afternoon: {availability[employeeId][`${day.toLowerCase()}_afternoon`] ? 'Yes' : 'No'}
+              </span>
+            </li>
+          ))}
+          
+        </ul>
+      )
+    );
+  };
+  
+
   return (
     <div className="flex min-h-screen text-black">
       <div
@@ -203,7 +243,7 @@ export default function EmployeeListPage() {
                 disabled={isLoading}
               />
               <select
-                className="block w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 bg-white/10 text-white"
+                className="block w-full p-3 border rounded-lg focus:outline-none focus:border-blue-500 bg-white/10 text-black"
                 value={role}
                 onChange={(e) => setRole(e.target.value)}
                 required
@@ -278,63 +318,40 @@ export default function EmployeeListPage() {
           </div>
         </div>
 
-         {/* Employee List with Availability */}
-         <div className="bg-black/20 backdrop-blur-lg shadow-lg rounded-lg p-6 border-2 border-white mt-5 ml-20">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold text-center text-white">Employee List</h2>
-              <button
-                onClick={fetchEmployees}
-                disabled={isFetching}
-                className="text-white hover:text-blue-200 transition-colors"
-              >
-                {isFetching ? "Refreshing..." : "Refresh"}
-              </button>
-            </div>
-            {isFetching ? (
-              <div className="text-center text-white flex items-center justify-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent" />
-                <span>Loading employees...</span>
+        <div className="bg-black/20 backdrop-blur-lg shadow-lg rounded-lg p-6 border-2 border-white ml-20 mt-8">
+            <h2 className="text-2xl font-bold mb-4 text-center text-white">Employee List</h2>
+            {employees.map((employee) => (
+              <div key={employee.id} className="mb-4">
+                <div
+                  onClick={() => toggleEmployeeDetails(employee.id)}
+                  className="flex items-center justify-between cursor-pointer bg-gray-400 hover:bg-gray-500 rounded-lg p-4"
+                >
+                  <div className="flex items-center">
+                    <Image
+                      src={profileImageUrl}
+                      alt={`${employee.first_name} ${employee.last_name}`}
+                      width={50}
+                      height={50}
+                      className="rounded-full"
+                    />
+                    <div className="ml-4">
+                      <p className="text-white text-lg font-semibold">
+                        {employee.first_name} {employee.last_name}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-white text-lg">{employee.role}</p>
+                  </div>
+                </div>
+
+                {expandedEmployee === employee.id && (
+                  <div className="bg-white rounded-lg p-4 mt-2">
+                    {employeeDetails(employee.id)}
+                  </div>
+                )}
               </div>
-            ) : employees.length > 0 ? (
-              <ul className="space-y-4">
-                {employees.map((employee) => (
-                  <li key={employee.id} className="border border-white/20 p-4 rounded-lg bg-white/10">
-                    <p className="text-white">
-                      <strong>Name:</strong> {employee.first_name} {employee.last_name}
-                    </p>
-                    <p className="text-white">
-                      <strong>Email:</strong> {employee.email}
-                    </p>
-                    <p className="text-white">
-                      <strong>Phone:</strong> {employee.phone || "N/A"}
-                    </p>
-                    <p className="text-white">
-                      <strong>Role:</strong> {employee.role}
-                    </p>
-                    <p className="text-white">
-                      <strong>Availability: </strong> 
-                      {availability[employee.id] && (
-                        <ul>
-                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                            <li key={day}>
-                              <strong>{day}: </strong>
-                              <span className={availability[employee.id][`${day.toLowerCase()}_morning`] ? 'text-green-400' : 'text-red-400'}>
-                                Morning: {availability[employee.id][`${day.toLowerCase()}_morning`] ? 'Yes' : 'No'}
-                              </span>,{' '} 
-                              <span className={availability[employee.id][`${day.toLowerCase()}_afternoon`] ? 'text-green-400' : 'text-red-400'}>
-                                Afternoon: {availability[employee.id][`${day.toLowerCase()}_afternoon`] ? 'Yes' : 'No'}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-center text-white">No employees found</p>
-            )}
+            ))}
           </div>
       </div>
     </div>
