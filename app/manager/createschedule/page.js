@@ -1,22 +1,17 @@
+// app/manager/createschedule/page.js
+
 "use client";
 import { useUser, useAuth } from '@clerk/nextjs';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import NavBar from '../components/NavBar';
-import Image from 'next/image';
 import ModernScheduleCalendar from '../components/SchedulerCalendar';
-import { supabase } from '../../../backend/database/supabaseClient'; // Correct import path
+import { supabase } from '../../../backend/database/supabaseClient';
 
 export default function CreateSchedulePage() {
   const { signOut, getToken } = useAuth();
   const { user } = useUser();
   const [profileImageUrl, setProfileImageUrl] = useState('/images/default-avatar.png');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [employees, setEmployees] = useState([]);
-  const [selectedEmployee, setSelectedEmployee] = useState('');
-  const [shiftStart, setShiftStart] = useState('');
-  const [shiftEnd, setShiftEnd] = useState('');
-  const [reason, setReason] = useState('');
-  const [weekPeriod, setWeekPeriod] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -44,54 +39,22 @@ export default function CreateSchedulePage() {
     if (user) fetchUserProfileImage();
   }, [user, fetchUserProfileImage]);
 
-  useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('users')
-          .select('id, clerk_user_id, first_name, last_name');
-
-        if (error) throw error;
-
-        setEmployees(data || []);
-      } catch (error) {
-        console.error('Error fetching employees:', error.message);
-      }
-    };
-
-    fetchEmployees();
-  }, []);
-
-  const handleScheduleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!selectedEmployee || !shiftStart || !shiftEnd || !weekPeriod) {
-      alert('Please fill in all required fields.');
-      return;
-    }
-
+  const handleRemoveFromShift = async (shiftId) => {
     try {
       const { error } = await supabase
-        .from('my_shifts')
-        .insert({
-          user_id: selectedEmployee,
-          shift_start: shiftStart,
-          shift_end: shiftEnd,
-          reason: reason,
-          week_period: weekPeriod,
-        });
+        .from('schedules')
+        .delete()
+        .eq('id', shiftId);
 
       if (error) throw error;
-
-      alert('Schedule created successfully!');
-      setShiftStart('');
-      setShiftEnd('');
-      setReason('');
-      setWeekPeriod('');
-      setSelectedEmployee('');
+      
+      if (calendarRef.current?.refreshData) {
+        await calendarRef.current.refreshData();
+      }
+      alert('Employee removed from shift successfully');
     } catch (error) {
-      console.error('Error creating schedule:', error.message);
-      alert('An error occurred while creating the schedule.');
+      console.error('Error removing employee from shift:', error);
+      alert('Failed to remove employee from shift');
     }
   };
 
@@ -102,69 +65,53 @@ export default function CreateSchedulePage() {
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-        controller.abort();
-        setError('Request timed out. Please try again.');
-        console.error('Request timed out.');
+      controller.abort();
+      setError('Request timed out. Please try again.');
+      console.error('Request timed out.');
     }, 60000);
 
     try {
-        const token = await getToken();
-        console.log('Retrieved token:', token);
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Authentication token not available.');
+      }
 
-        if (!token) {
-            throw new Error('Authentication token not available.');
-        }
+      const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+      
+      const response = await fetch('/api/schedule/generate-schedule', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ monthStart: firstDayOfMonth.toISOString() }),
+        signal: controller.signal,
+      });
 
-        const firstDayOfMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
-        console.log('Calculated first day of the month:', firstDayOfMonth.toISOString());
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData?.error || `Failed to generate schedule. Status: ${response.status}`);
+      }
 
-        console.log('Sending POST request to /api/schedule/generate-schedule...');
-        const response = await fetch('/api/schedule/generate-schedule', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${token}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ monthStart: firstDayOfMonth.toISOString() }),
-            signal: controller.signal,
-        });
+      const result = await response.json();
 
-        console.log('Response status:', response.status);
+      if (calendarRef.current?.refreshData) {
+        await calendarRef.current.refreshData();
+      }
 
-        if (!response.ok) {
-            let errorData;
-            try {
-                errorData = await response.json();
-                console.error('Error response body:', errorData);
-            } catch (parseError) {
-                console.error('Failed to parse error response body.');
-            }
-            throw new Error(errorData?.error || `Failed to generate schedule. Status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        console.log('Schedule generated successfully. Result:', result);
-
-        if (calendarRef.current?.refreshData) {
-            console.log('Refreshing calendar data...');
-            await calendarRef.current.refreshData();
-            console.log('Calendar data refreshed.');
-        }
-
-        alert('Schedule generated successfully!');
+      alert('Schedule generated successfully!');
     } catch (err) {
-        if (err.name === 'AbortError') {
-            console.error('Request aborted due to timeout.');
-        } else {
-            console.error('Error during schedule generation:', err.message);
-        }
-        setError(err.message);
+      if (err.name === 'AbortError') {
+        console.error('Request aborted due to timeout.');
+      } else {
+        console.error('Error during schedule generation:', err.message);
+      }
+      setError(err.message);
     } finally {
-        clearTimeout(timeoutId);
-        setLoading(false);
-        console.log('Auto-generate process completed.');
+      clearTimeout(timeoutId);
+      setLoading(false);
     }
-}, [getToken, currentMonth]);
+  }, [getToken, currentMonth]);
   
   const handleMonthChange = (newMonth) => setCurrentMonth(newMonth);
 
@@ -200,84 +147,18 @@ export default function CreateSchedulePage() {
         </div>
 
         {error && (
-        <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <div className="mb-6 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <p>Error: {error}</p>
-    <       p>Please check console logs for more details.</p>
-        </div>
+            <p>Please check console logs for more details.</p>
+          </div>
         )}
 
-
-        <div className="mt-6 bg-white rounded-lg shadow-lg p-6 text-black">
-          <form onSubmit={handleScheduleSubmit}>
-            <div className="mb-4">
-              <label htmlFor="employee" className="block text-gray-700 font-bold mb-2">Select Employee</label>
-              <select
-                id="employee"
-                value={selectedEmployee || ''}
-                onChange={(e) => setSelectedEmployee(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-              >
-                <option value="">-- Select Employee --</option>
-                {employees.map((employee) => (
-                  <option key={employee.clerk_user_id} value={employee.clerk_user_id}>
-                    {employee.first_name} {employee.last_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="mb-4">
-              <label htmlFor="shiftStart" className="block text-gray-700 font-bold mb-2">Shift Start</label>
-              <input
-                type="datetime-local"
-                id="shiftStart"
-                value={shiftStart}
-                onChange={(e) => setShiftStart(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="shiftEnd" className="block text-gray-700 font-bold mb-2">Shift End</label>
-              <input
-                type="datetime-local"
-                id="shiftEnd"
-                value={shiftEnd}
-                onChange={(e) => setShiftEnd(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-                required
-              />
-            </div>
-            <div className="mb-4">
-              <label htmlFor="reason" className="block text-gray-700 font-bold mb-2">Reason</label>
-              <textarea
-                id="reason"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-                rows="3"
-              ></textarea>
-            </div>
-            <div className="mb-4">
-              <label htmlFor="weekPeriod" className="block text-gray-700 font-bold mb-2">Week Period</label>
-              <input
-                type="date"
-                id="weekPeriod"
-                value={weekPeriod}
-                onChange={(e) => setWeekPeriod(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-indigo-500"
-                required
-              />
-            </div>
-            <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition duration-200">
-              Create Schedule
-            </button>
-          </form>
-          <div className="mt-6">
-            <ModernScheduleCalendar
-              ref={calendarRef}
-              onMonthChange={handleMonthChange}
-            />
-          </div>
+        <div className="mt-6">
+          <ModernScheduleCalendar
+            ref={calendarRef}
+            onMonthChange={handleMonthChange}
+            onShiftRemove={handleRemoveFromShift}
+          />
         </div>
       </div>
     </div>

@@ -19,7 +19,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
   const managerNavItems = [
     { name: "Create Schedule", href: "/manager/createschedule", icon: <AddCircle /> },
     { name: "Employee List", href: "/manager/employeelist", icon: <List /> },
-    { name: "Approve Shifts", href: "/manager/approveshifts", icon: <Check /> },
+    //{ name: "Approve Shifts", href: "/manager/approveshifts", icon: <Check /> }, Not implemented, commented out for consistency. 
   ];
 
   return (
