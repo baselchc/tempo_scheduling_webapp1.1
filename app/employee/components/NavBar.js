@@ -25,7 +25,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
         {/* Logo */}
         <div className={`flex items-center justify-center mb-3 ${menuOpen ? '' : ''}`}>
           <Image
-            className="dark:invert"
+            className="dark:invert mr-1"
             src="/images/tempo-removebg-preview.png"
             alt="Tempo logo"
             width={menuOpen ? 150 : 60} // Bigger logo in both expanded and collapsed views
