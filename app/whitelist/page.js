@@ -51,8 +51,8 @@ export default function WhitelistPage() {
 
     try {
       const { data, error } = await supabase
-        .from("whitelist_codes")
-        .select("*")
+        .from("whitelist_code")
+        .select("code")
         .eq("code", code)
         .single();
 
@@ -75,8 +75,7 @@ export default function WhitelistPage() {
         return;
       }
 
-      alert("Your account has been successfully whitelisted!");
-      router.reload(); // Refresh the page to recheck whitelist status
+      router.push("/employee");
     } catch (err) {
       console.error("Error verifying whitelist code:", err.message);
       setError("An unexpected error occurred. Please try again.");
