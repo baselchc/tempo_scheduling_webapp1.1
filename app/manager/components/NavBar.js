@@ -42,7 +42,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
         {/* Navigation Links */}
         <ul className="space-y-4">
           {navItems.map((item, index) => (
-            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
+            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer ml-1">
               <a href={item.href} className="flex items-center gap-2">
                 {item.icon}
                 {menuOpen && <span>{item.name}</span>} {/* Show name only if menu is open */}
@@ -55,7 +55,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
           </li>
 
           {managerNavItems.map((item, index) => (
-            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
+            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer ml-1">
               <a href={item.href} className="flex items-center gap-2">
                 {item.icon}
                 {menuOpen && <span>{item.name}</span>} {/* Show name only if menu is open */}

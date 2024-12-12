@@ -95,7 +95,7 @@ export default function EmployeeListPage() {
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
   return (
-    <div className="relative min-h-screen text-black">
+    <div className="flex min-h-screen text-black">
       {/* Background */}
       <div
         className="absolute inset-0 -z-10 bg-cover bg-center filter blur-md brightness-75"
@@ -138,8 +138,8 @@ export default function EmployeeListPage() {
         )}
       </div>
 
-      <div className={`container mx-auto mt-10 px-4 ${menuOpen ? "ml-64" : "ml-20"}`}>
-        <h1 className="text-4xl font-bold mb-8 text-center text-white">Employee Management</h1>
+      <div className={`container mx-auto mt-10 px-4 transition-all duration-300 ${ menuOpen ? "ml-64" : "ml-20"}`}>
+        <h1 className="text-4xl font-bold mb-8 text-center text-white ml-20">Employee Management</h1>
 
         {error && (
           <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
@@ -147,7 +147,7 @@ export default function EmployeeListPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10 ml-20">
           {/* Add Employee Form */}
           <div className="bg-black/20 backdrop-blur-lg shadow-lg rounded-lg p-6 border-2 border-white">
             <h2 className="text-2xl font-bold mb-4 text-center text-white">Add New Employee</h2>
@@ -269,3 +269,5 @@ export default function EmployeeListPage() {
     </div>
   );
 }
+
+

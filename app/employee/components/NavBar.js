@@ -25,7 +25,7 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
         {/* Logo */}
         <div className={`flex items-center justify-center mb-3 ${menuOpen ? '' : ''}`}>
           <Image
-            className="dark:invert"
+            className="dark:invert ml-0.5"
             src="/images/tempo-removebg-preview.png"
             alt="Tempo logo"
             width={menuOpen ? 150 : 60} // Bigger logo in both expanded and collapsed views
@@ -35,9 +35,9 @@ const NavBar = ({ menuOpen, toggleMenu }) => {
         </div>
 
         {/* Navigation Links */}
-        <ul className="space-y-4">
+        <ul className="space-y-4 ">
           {navItems.map((item, index) => (
-            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer">
+            <li key={index} className="flex items-center gap-2 text-white hover:bg-blue-600 p-2 rounded cursor-pointer ml-1">
               <a href={item.href} className="flex items-center gap-2">
                 {item.icon}
                 {menuOpen && <span>{item.name}</span>} {/* Show name only if menu is open */}
