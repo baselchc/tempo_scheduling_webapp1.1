@@ -172,6 +172,7 @@ export default function ManagerDashboard() {
     fetchProfileImage();
     fetchNotifications();
     fetchSchedules(selectedDate);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, selectedDate]);
 
   const handlePreviousDay = () => setSelectedDate((prevDate) => subDays(prevDate, 1));
@@ -230,8 +231,8 @@ export default function ManagerDashboard() {
               className="rounded-full"
               src={profileImageUrl}
               alt="Profile image"
-              width={50}
-              height={50}
+              width={40}
+              height={40}
             />
             <span className="text-white font-semibold">
               {user?.emailAddresses[0].emailAddress}
