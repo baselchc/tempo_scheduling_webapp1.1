@@ -67,8 +67,6 @@ export default function EmployeeListPage() {
           saturday_afternoon: av.saturday_afternoon,
           sunday_morning: av.sunday_morning,
           sunday_afternoon: av.sunday_afternoon
-          // Add other days similarly
-          // ...
         };
         return acc;
       }, {});
@@ -316,11 +314,19 @@ export default function EmployeeListPage() {
                     <p className="text-white">
                       <strong>Availability: </strong> 
                       {availability[employee.id] && (
-                        <span>
-                          {Object.keys(availability[employee.id])
-                            .map(day => availability[employee.id][day] ? `${day.replace('_', ' ')}: Yes` : `${day.replace('_', ' ')}: No`)
-                            .join(', ')}
-                        </span>
+                        <ul>
+                          {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                            <li key={day}>
+                              <strong>{day}: </strong>
+                              <span className={availability[employee.id][`${day.toLowerCase()}_morning`] ? 'text-green-400' : 'text-red-400'}>
+                                Morning: {availability[employee.id][`${day.toLowerCase()}_morning`] ? 'Yes' : 'No'}
+                              </span>,{' '} 
+                              <span className={availability[employee.id][`${day.toLowerCase()}_afternoon`] ? 'text-green-400' : 'text-red-400'}>
+                                Afternoon: {availability[employee.id][`${day.toLowerCase()}_afternoon`] ? 'Yes' : 'No'}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
                       )}
                     </p>
                   </li>
