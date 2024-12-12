@@ -197,6 +197,31 @@ export default function ManagerDashboard() {
               {unreadNotificationCount}
             </span>
           )}
+          {notificationsOpen && (
+            <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
+              {notifications.length > 0 ? (
+                notifications.map((notification) => (
+                  <div key={notification.id} className="mb-2 flex items-center justify-between">
+                    <p
+                      onClick={() => handleNotificationClick(notification.id)}
+                      className="cursor-pointer hover:text-blue-600"
+                    >
+                      {notification.message}
+                    </p>
+                    {!notification.is_read && (
+                      <CheckCircleOutline
+                        onClick={() => markAsRead(notification.id)}
+                        className="text-gray-400 cursor-pointer hover:text-black"
+                        titleAccess="Mark as read"
+                      />
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p>No new notifications.</p>
+              )}
+            </div>
+          )}
         </button>
 
         <div className="relative">
@@ -205,8 +230,8 @@ export default function ManagerDashboard() {
               className="rounded-full"
               src={profileImageUrl}
               alt="Profile image"
-              width={40}
-              height={40}
+              width={50}
+              height={50}
             />
             <span className="text-white font-semibold">
               {user?.emailAddresses[0].emailAddress}
