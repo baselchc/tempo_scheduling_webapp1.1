@@ -28,6 +28,15 @@ export default function ManagerDashboard() {
 
   const toggleProfileMenu = () => setProfileMenuOpen(!profileMenuOpen);
 
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/");
+  };
+
+  const handleEditProfile = () => {
+    router.push("/manager/profile");
+  };
+
   const fetchNotifications = async () => {
     if (!user) return;
 
@@ -114,7 +123,8 @@ export default function ManagerDashboard() {
         `)
         .eq("date", formattedDate)
         .eq("status", "scheduled")
-        .order("shift_type", { ascending: true });
+        .in("shift_type", ["morning", "afternoon"])
+        .order("employee_id", { ascending: true });
 
       if (error) {
         console.error("Error fetching schedules:", error.message);
@@ -122,16 +132,33 @@ export default function ManagerDashboard() {
         return;
       }
 
-      const formattedSchedules = data.map((schedule) => ({
-        id: schedule.id,
-        employeeName: `${schedule.employee?.first_name || "Unknown"} ${schedule.employee?.last_name || ""}`,
-        shiftType: schedule.shift_type,
+      const employeeShifts = {};
+      data.forEach((schedule) => {
+        const employeeName = `${schedule.employee?.first_name || "Unknown"} ${schedule.employee?.last_name || ""}`;
+        if (!employeeShifts[employeeName]) {
+          employeeShifts[employeeName] = {
+            id: schedule.id,
+            employeeName,
+            shiftTypes: new Set(),
+            timing: [],
+          };
+        }
+
+        employeeShifts[employeeName].shiftTypes.add(schedule.shift_type);
+
+        if (schedule.shift_type === "morning") {
+          employeeShifts[employeeName].timing.push("9:00 AM - 1:00 PM");
+        } else if (schedule.shift_type === "afternoon") {
+          employeeShifts[employeeName].timing.push("1:00 PM - 5:00 PM");
+        }
+      });
+
+      const formattedSchedules = Object.values(employeeShifts).map((entry) => ({
+        id: entry.id,
+        employeeName: entry.employeeName,
+        shiftType: Array.from(entry.shiftTypes).join(" and "),
         shiftTiming:
-          schedule.shift_type === "morning"
-            ? "9:00 AM - 1:00 PM"
-            : schedule.shift_type === "evening"
-            ? "1:00 PM - 5:00 PM"
-            : "Manager",
+          entry.timing.length === 2 ? "9:00 AM - 5:00 PM" : entry.timing[0],
       }));
 
       setDailySchedules(formattedSchedules);
@@ -170,45 +197,38 @@ export default function ManagerDashboard() {
               {unreadNotificationCount}
             </span>
           )}
-          {notificationsOpen && (
-            <div className="absolute right-0 mt-2 w-64 bg-white shadow-lg rounded-lg p-4 z-50">
-              {notifications.length > 0 ? (
-                notifications.map((notification) => (
-                  <div key={notification.id} className="mb-2 flex items-center justify-between">
-                    <p
-                      onClick={() => handleNotificationClick(notification.id)}
-                      className="cursor-pointer hover:text-blue-600"
-                    >
-                      {notification.message}
-                    </p>
-                    {!notification.is_read && (
-                      <CheckCircleOutline
-                        onClick={() => markAsRead(notification.id)}
-                        className="text-gray-400 cursor-pointer hover:text-black"
-                        titleAccess="Mark as read"
-                      />
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p>No new notifications.</p>
-              )}
-            </div>
-          )}
         </button>
 
-        <button onClick={toggleProfileMenu} className="flex items-center gap-2">
-          <Image
-            className="rounded-full"
-            src={profileImageUrl}
-            alt="Profile image"
-            width={40}
-            height={40}
-          />
-          <span className="text-white font-semibold">
-            {user?.emailAddresses[0].emailAddress}
-          </span>
-        </button>
+        <div className="relative">
+          <button onClick={toggleProfileMenu} className="flex items-center gap-2">
+            <Image
+              className="rounded-full"
+              src={profileImageUrl}
+              alt="Profile image"
+              width={40}
+              height={40}
+            />
+            <span className="text-white font-semibold">
+              {user?.emailAddresses[0].emailAddress}
+            </span>
+          </button>
+          {profileMenuOpen && (
+            <div className="absolute right-0 mt-2 w-40 bg-white shadow-lg rounded-lg z-50">
+              <button
+                onClick={handleEditProfile}
+                className="block w-full text-left px-4 py-2 hover:bg-gray-200"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="block w-full text-left px-4 py-2 hover:bg-gray-200"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className={`flex-grow p-8 transition-all z-10 ${menuOpen ? "ml-64" : "ml-20"}`}>
@@ -260,10 +280,3 @@ export default function ManagerDashboard() {
     </div>
   );
 }
-
-
-
-
- {/*Code enhanced by AI (ChatGPT 4o) Prompts were: Create a consistent look of the page with the login page, 
-  add the blurred background and adjust they layout to match the same feel of the login page, this page should handle the open shifts
-  tab and allow a view of Available Shifts and Open Shifts.*/}
