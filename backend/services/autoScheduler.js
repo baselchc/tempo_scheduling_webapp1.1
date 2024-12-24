@@ -12,48 +12,29 @@ class AutoScheduler {
       this.monthStart = monthStart;
     }
 
-    this.monthStart = new Date(
-      this.monthStart.getFullYear(),
-      this.monthStart.getMonth(),
-      1
-    );
+    // Get year and month from input
+    const year = this.monthStart.getFullYear();
+    const month = this.monthStart.getMonth();
 
-    this.monthEnd = new Date(
-      this.monthStart.getFullYear(),
-      this.monthStart.getMonth() + 1,
-      0
-    );
+    // Set to first day of month at midnight UTC
+    this.monthStart = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+
+    // Set to last day of month at end of day UTC
+    // Using the same year and month + 1, day 0 gives us the last day of the current month
+    this.monthEnd = new Date(Date.UTC(year, month + 1, 0, 23, 59, 59, 999));
 
     console.log('AutoScheduler initialized with:', {
       monthStart: this.monthStart.toISOString(),
       monthEnd: this.monthEnd.toISOString(),
+      year: this.monthStart.getUTCFullYear(),
+      month: this.monthStart.getUTCMonth() + 1,
+      lastDayOfMonth: this.monthEnd.getUTCDate()
     });
 
-    this.MAX_WEEKLY_HOURS = 40;
     this.EMPLOYEES_PER_SHIFT = 2;
+    this.MANAGERS_PER_DAY = 1;
+    this.MAX_WEEKLY_HOURS = 40;
     this.SHIFT_HOURS = 4;
-    this.calendar = this.initializeCalendar();
-  }
-
-  initializeCalendar() {
-    if (process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
-      try {
-        return google.calendar({
-          version: 'v3',
-          auth: new google.auth.GoogleAuth({
-            credentials: {
-              client_email: process.env.GOOGLE_CLIENT_EMAIL,
-              private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-            },
-            scopes: ['https://www.googleapis.com/auth/calendar'],
-          }),
-        });
-      } catch (error) {
-        console.log('Google Calendar initialization failed:', error.message);
-        return null;
-      }
-    }
-    return null;
   }
 
   getDayName(dayIndex) {
@@ -69,12 +50,11 @@ class AutoScheduler {
     return days[dayIndex];
   }
 
-  // Utility to calculate ISO week of the year
   getWeek(date) {
     const newDate = new Date(date.getTime());
-    newDate.setHours(0, 0, 0, 0);
-    newDate.setDate(newDate.getDate() + 4 - (newDate.getDay() || 7));
-    const yearStart = new Date(newDate.getFullYear(), 0, 1);
+    newDate.setUTCHours(0, 0, 0, 0);
+    newDate.setUTCDate(newDate.getUTCDate() + 4 - (newDate.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(newDate.getUTCFullYear(), 0, 1));
     const weekNumber = Math.ceil(((newDate - yearStart) / 86400000 + 1) / 7);
     return weekNumber;
   }
@@ -91,17 +71,68 @@ class AutoScheduler {
     return weeklyHours + this.SHIFT_HOURS <= this.MAX_WEEKLY_HOURS;
   }
 
+  selectEmployeesForShift(availableEmployees, count) {
+    const sortedEmployees = [...availableEmployees].sort((a, b) => 
+      (a.assignedShifts || 0) - (b.assignedShifts || 0)
+    );
+    return sortedEmployees.slice(0, count);
+  }
+
+  async deleteExistingSchedules() {
+    const startDate = this.monthStart.toISOString().split('T')[0];
+    const endDate = this.monthEnd.toISOString().split('T')[0];
+
+    console.log('Attempting to delete schedules for month:', {
+      startDate,
+      endDate,
+      year: this.monthStart.getUTCFullYear(),
+      month: this.monthStart.getUTCMonth() + 1
+    });
+
+    try {
+      const { data: existingSchedules, error: fetchError } = await supabase
+        .from('schedules')
+        .select('*')
+        .gte('date', startDate)
+        .lte('date', endDate);
+
+      if (fetchError) {
+        console.error('Error fetching existing schedules:', fetchError);
+        throw fetchError;
+      }
+
+      console.log(`Found ${existingSchedules?.length || 0} existing schedules for ${this.monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })}`);
+
+      if (existingSchedules && existingSchedules.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('schedules')
+          .delete()
+          .gte('date', startDate)
+          .lte('date', endDate);
+
+        if (deleteError) {
+          console.error('Error during delete operation:', deleteError);
+          throw deleteError;
+        }
+
+        console.log(`Successfully deleted ${existingSchedules.length} schedules`);
+      } else {
+        console.log('No existing schedules found for the specified month');
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Failed to delete existing schedules:', error);
+      throw error;
+    }
+  }
+
   async generateSchedule() {
     console.time('Schedule Generation');
     try {
-      console.time('Clear Existing Schedule');
-      const { error: deleteError } = await supabase
-        .from('schedules')
-        .delete()
-        .gte('date', this.monthStart.toISOString())
-        .lte('date', this.monthEnd.toISOString());
-      if (deleteError) throw deleteError;
-      console.timeEnd('Clear Existing Schedule');
+      console.log(`Generating schedule for ${this.monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })}`);
+      
+      await this.deleteExistingSchedules();
 
       console.time('Fetch Managers and Employees');
       const [managersResult, employeesResult] = await Promise.all([
@@ -122,93 +153,100 @@ class AutoScheduler {
       ]);
 
       const managers = managersResult.data;
-      const employees = employeesResult.data.map((employee) => {
-        const availability = employee.availability.reduce((acc, day) => {
-          return { ...acc, ...day };
-        }, {});
-        return { ...employee, availability };
-      });
+      const employees = employeesResult.data.map(employee => ({
+        ...employee,
+        availability: employee.availability.reduce((acc, day) => ({ ...acc, ...day }), {}),
+        assignedShifts: 0
+      }));
+
       console.timeEnd('Fetch Managers and Employees');
 
-      if (!managers || managers.length === 0) {
-        console.error('No managers found in the system.');
-        throw new Error('No managers found in the system');
-      }
-
-      if (!employees || employees.length === 0) {
-        console.error('No employees found in the system.');
-        console.error('Employees Query Result:', JSON.stringify(employeesResult, null, 2));
-        throw new Error('No employees found in the system');
-      }
-
-      console.log('Fetched managers:', JSON.stringify(managers, null, 2));
-      console.log('Fetched employees:', JSON.stringify(employees, null, 2));
+      if (!managers?.length) throw new Error('No managers found in the system');
+      if (!employees?.length) throw new Error('No employees found in the system');
 
       const schedule = [];
-      const employeeHours = {};
       let currentDate = new Date(this.monthStart);
+      let managerIndex = 0;
 
       while (currentDate <= this.monthEnd) {
-        const dayName = this.getDayName(currentDate.getDay()).toLowerCase();
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const dayName = this.getDayName(currentDate.getUTCDay()).toLowerCase();
 
         if (dayName !== 'saturday' && dayName !== 'sunday') {
-          for (const shiftType of ['morning', 'afternoon']) {
-            const availabilityKey = `${dayName}_${shiftType}`;
-            const availableEmployees = employees.filter((employee) => {
-              if (!employee.availability || Object.keys(employee.availability).length === 0) {
-                console.warn(
-                  `Employee ${employee.first_name} ${employee.last_name} (ID: ${employee.id}) has no availability data.`
-                );
-                return false;
-              }
+          // Assign manager
+          const manager = managers[managerIndex % managers.length];
+          schedule.push({
+            date: dateStr,
+            shift_type: 'manager',
+            employee_id: manager.id
+          });
 
-              const isAvailable = employee.availability[availabilityKey];
-              const hasCapacity = this.hasCapacity(
-                currentDate,
-                employee.id,
-                schedule
-              );
+          // Morning shift
+          const morningKey = `${dayName}_morning`;
+          const availableMorningEmployees = employees.filter(employee => {
+            const isAvailable = employee.availability[morningKey];
+            const hasCapacity = this.hasCapacity(currentDate, employee.id, schedule);
+            return isAvailable && hasCapacity;
+          });
 
-              if (!isAvailable) {
-                console.warn(
-                  `Employee ${employee.first_name} ${employee.last_name} (ID: ${employee.id}) is not available for ${availabilityKey}.`
-                );
-              }
+          const morningEmployees = this.selectEmployeesForShift(
+            availableMorningEmployees, 
+            this.EMPLOYEES_PER_SHIFT
+          );
 
-              return isAvailable && hasCapacity;
+          morningEmployees.forEach(employee => {
+            schedule.push({
+              date: dateStr,
+              shift_type: 'morning',
+              employee_id: employee.id
             });
+            employee.assignedShifts++;
+          });
 
-            if (availableEmployees.length === 0) {
-              console.warn(
-                `No employees available for ${shiftType} shift on ${currentDate.toISOString()}`
-              );
-              continue;
-            }
+          // Afternoon shift
+          const afternoonKey = `${dayName}_afternoon`;
+          const availableAfternoonEmployees = employees.filter(employee => {
+            const isAvailable = employee.availability[afternoonKey];
+            const hasCapacity = this.hasCapacity(currentDate, employee.id, schedule);
+            return isAvailable && hasCapacity;
+          });
 
-            availableEmployees.forEach((employee) => {
-              schedule.push({
-                date: currentDate.toISOString().split('T')[0],
-                shift_type: shiftType,
-                employee_id: employee.id,
-              });
-              employeeHours[employee.id] =
-                (employeeHours[employee.id] || 0) + this.SHIFT_HOURS;
+          const afternoonEmployees = this.selectEmployeesForShift(
+            availableAfternoonEmployees,
+            this.EMPLOYEES_PER_SHIFT
+          );
+
+          afternoonEmployees.forEach(employee => {
+            schedule.push({
+              date: dateStr,
+              shift_type: 'afternoon',
+              employee_id: employee.id
             });
-          }
+            employee.assignedShifts++;
+          });
+
+          managerIndex++;
         }
 
-        currentDate.setDate(currentDate.getDate() + 1);
+        // Increment the date properly using UTC
+        currentDate = new Date(Date.UTC(
+          currentDate.getUTCFullYear(),
+          currentDate.getUTCMonth(),
+          currentDate.getUTCDate() + 1
+        ));
       }
 
-      console.time('Insert Shifts');
-      const { error: insertError } = await supabase
-        .from('schedules')
-        .insert(schedule);
-      if (insertError) {
-        console.error('Error inserting shifts into the database:', insertError);
-        throw insertError;
+      if (schedule.length > 0) {
+        console.log(`Inserting ${schedule.length} schedules for ${this.monthStart.toLocaleString('default', { month: 'long', year: 'numeric' })}`);
+        const { error: insertError } = await supabase
+          .from('schedules')
+          .insert(schedule);
+          
+        if (insertError) {
+          console.error('Error inserting shifts into the database:', insertError);
+          throw insertError;
+        }
       }
-      console.timeEnd('Insert Shifts');
 
       console.timeEnd('Schedule Generation');
       return schedule;

@@ -54,19 +54,29 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange, onShiftRemove }, ref
     };
   
     return shifts.sort((a, b) => {
-      // First, sort by shift type based on predefined order
-      const shiftTypeComparison = shiftOrder[a.shift_type] - shiftOrder[b.shift_type];
-      
-      // If shift types are the same, you can add a secondary sort
-      if (shiftTypeComparison === 0) {
-        // For example, sort by employee last name
-        const employeeA = employees.find(e => e.id === a.employee_id);
-        const employeeB = employees.find(e => e.id === b.employee_id);
-        
-        return employeeA?.last_name.localeCompare(employeeB?.last_name || '');
+      // First sort by date if dates are different
+      if (a.date !== b.date) {
+        return new Date(a.date) - new Date(b.date);
       }
       
-      return shiftTypeComparison;
+      // Then sort by shift type using the predefined order
+      const shiftTypeComparison = shiftOrder[a.shift_type] - shiftOrder[b.shift_type];
+      
+      // If shift types are different, use that order
+      if (shiftTypeComparison !== 0) {
+        return shiftTypeComparison;
+      }
+      
+      // If shift types are the same, sort by employee last name
+      const employeeA = employees.find(e => e.id === a.employee_id);
+      const employeeB = employees.find(e => e.id === b.employee_id);
+      
+      // If we can't find employee info, put them at the end
+      if (!employeeA || !employeeB) {
+        return !employeeA ? 1 : -1;
+      }
+      
+      return employeeA.last_name.localeCompare(employeeB.last_name);
     });
   }, [employees]);
 
@@ -78,33 +88,20 @@ const ModernScheduleCalendar = forwardRef(({ onMonthChange, onShiftRemove }, ref
       setLoading(true);
       setError(null);
   
-      // Get the first day shown in the calendar (including previous month's days)
       const firstDay = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const startDate = new Date(firstDay);
       startDate.setDate(firstDay.getDate() - firstDay.getDay());
   
-      // Get the last day shown in the calendar (including next month's days)
       const lastDay = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
       const endDate = new Date(lastDay);
       endDate.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
   
-      console.log('Fetching schedule for expanded date range:', {
-        calendarStart: startDate.toISOString(),
-        calendarEnd: endDate.toISOString()
-      });
-  
-      // Fetch employees first
-      // Fetch employees first
-      // In the fetchData function:
       const { data: employeesData, error: employeesError } = await supabase
-  .from("users")
-  .select("id, first_name, last_name, role, clerk_user_id");
-
-console.log('Fetched employees:', employeesData);
+        .from("users")
+        .select("id, first_name, last_name, role, clerk_user_id");
   
       if (employeesError) throw employeesError;
   
-      // Then fetch schedule data
       const { data: scheduleData, error: scheduleError } = await supabase
         .from("schedules")
         .select("id, date, shift_type, employee_id")
@@ -113,26 +110,22 @@ console.log('Fetched employees:', employeesData);
   
       if (scheduleError) throw scheduleError;
   
-      console.log('Retrieved schedule data:', {
-        employeeCount: employeesData?.length || 0,
-        scheduleCount: scheduleData?.length || 0
-      });
-  
       if (mountedRef.current) {
         setEmployees(employeesData || []);
-        setSchedule(
-          (scheduleData || []).map((s) => {
-            const employee = employeesData.find((e) => e.id === s.employee_id);
-            if (!employee) {
-              console.warn(`No employee found for ID: ${s.employee_id}`);
-            }
-            return {
-              ...s,
-              date: new Date(s.date).toISOString().split("T")[0],
-              employee
-            };
-          })
-        );
+        // Create the schedule data and then sort it
+        const mappedSchedule = (scheduleData || []).map((s) => {
+          const employee = employeesData.find((e) => e.id === s.employee_id);
+          if (!employee) {
+            console.warn(`No employee found for ID: ${s.employee_id}`);
+          }
+          return {
+            ...s,
+            date: new Date(s.date).toISOString().split("T")[0],
+            employee
+          };
+        });
+        // Apply the sorting function before setting the schedule
+        setSchedule(sortShifts(mappedSchedule));
       }
     } catch (error) {
       console.error("Error fetching calendar data:", error);
@@ -143,7 +136,7 @@ console.log('Fetched employees:', employeesData);
         isLoadingRef.current = false;
       }
     }
-  }, [user, currentDate]);
+  }, [user, currentDate, sortShifts]);
 
   useEffect(() => {
     fetchData();
@@ -232,24 +225,15 @@ console.log('Fetched employees:', employeesData);
   const renderCalendarDay = useCallback((day) => {
     const dayString = day.toISOString().split("T")[0];
     
-    // Debug end-of-month cases
-    const daySchedule = schedule.filter((s) => {
-      const matches = s.date === dayString;
-      if (day.getDate() >= 28) {
-        console.log(`End of month day ${day.getDate()}:`, {
-          dayString,
-          scheduleDate: s.date,
-          matches,
-          monthYear: `${day.getMonth() + 1}/${day.getFullYear()}`
-        });
-      }
-      return matches;
-    });
-
+    // Filter shifts for this day and sort them
+    const daySchedule = sortShifts(
+      schedule.filter((s) => s.date === dayString)
+    );
+  
     const isToday = dayString === new Date().toISOString().split("T")[0];
     const isSelected = selectedDay && dayString === selectedDay.toISOString().split("T")[0];
     const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-
+  
     return (
       <div
         key={dayString}
@@ -275,7 +259,7 @@ console.log('Fetched employees:', employeesData);
         </div>
       </div>
     );
-  }, [schedule, employees, selectedDay, currentDate, onShiftRemove]);
+  }, [schedule, employees, selectedDay, currentDate, onShiftRemove, sortShifts, renderScheduledShift]);
 
   const handlePreviousMonth = () => {
     setCurrentDate((prev) => {
@@ -522,7 +506,7 @@ console.log('Fetched employees:', employeesData);
             <div className="mt-4 p-4 bg-white rounded-lg border shadow-sm">
               <h4 className="font-medium mb-3">Add Employee to {timeSlots[selectedShiftType]?.label} Shift</h4>
               <div className="space-y-3">
-\<select
+<select
   value={selectedEmployee}
   onChange={(e) => {
     console.log('Selected employee:', e.target.value);
